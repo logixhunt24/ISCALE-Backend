@@ -291,11 +291,13 @@ exports.verifyLoginFace = async (req, res) => {
       });
     }
 
-    const top = response.data.searchedIdentities?.[0];
-    // matchResult mirrors the Face/verify endpoint's convention (1 = match),
-    // but the search endpoint already filters by matchConfidence server-side
-    // - so a returned identity with the right externalId is trusted even if
-    // matchResult itself is missing/null.
+    // searchedIdentities is one entry per face detected in the search image,
+    // and *that* wraps an identityConfidences array of actual candidates -
+    // confirmed against a real response, since the "identity"/"matchResult"
+    // fields are one level deeper than the LookupIdentities/IdentityConfidences
+    // schema names alone suggested:
+    // searchedIdentities: [{ identityConfidences: [{ identity, matchResult }] }]
+    const top = response.data.searchedIdentities?.[0]?.identityConfidences?.[0];
     const isMatch =
       !!top &&
       top.identity?.externalId === String(req.user.id) &&
