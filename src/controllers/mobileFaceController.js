@@ -305,14 +305,7 @@ exports.verifyLoginFace = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      data: {
-        isMatch,
-        // Raw MXFace response for the app to display on a mismatch - lets
-        // whoever's tuning matchConfidence actually see what MXFace
-        // returned instead of a plain pass/fail, since this endpoint's
-        // documented schema doesn't promise a numeric score.
-        raw: response.data,
-      },
+      data: { isMatch },
     });
   } catch (error) {
     const mxError = error.response?.data;
