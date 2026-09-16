@@ -257,7 +257,19 @@ exports.verifyLoginFace = async (req, res) => {
     }
 
     const groupId = await getGroupId();
-    const matchConfidence = Number(process.env.MXFACE_MATCH_CONFIDENCE) || 80;
+    // matchConfidence is a server-side filter on MXFace's search - a value
+    // set too high silently drops a genuine match (returns no result at
+    // all, not a low-confidence one) instead of rejecting it with a reason,
+    // which is exactly what happened at 80: a real login selfie under
+    // slightly different lighting/angle than the enrollment shot came back
+    // under that bar and looked identical to "no match" client-side. This
+    // endpoint's response never exposes the actual similarity score (unlike
+    // the old raw two-image /Face/verify), so there's no way to calibrate
+    // this from data - 60 is a starting middle ground, adjust via env var
+    // based on real testing (lower if genuine logins still get rejected,
+    // raise if it ever accepts the wrong person).
+    const matchConfidence = Number(process.env.MXFACE_MATCH_CONFIDENCE) || 60;
+    const qualityThreshold = Number(process.env.MXFACE_QUALITY_THRESHOLD) || 40;
 
     const response = await axios.post(
       `${MXFACE_BASE_URL}/FaceIdentity/search`,
@@ -266,6 +278,7 @@ exports.verifyLoginFace = async (req, res) => {
         encoded_Image: encoded_image,
         limit: 1,
         matchConfidence,
+        qualityThreshold,
       },
       { headers: mxfaceHeaders() },
     );
