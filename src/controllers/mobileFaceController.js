@@ -80,12 +80,13 @@ exports.checkLiveness = async (req, res) => {
       data: response.data,
     });
   } catch (error) {
-    console.error("MXFace Liveness Error:", error.response?.data || error.message);
+    const mxError = error.response?.data;
+    console.error("MXFace Liveness Error:", mxError || error.message);
 
     return res.status(502).json({
       status: false,
-      message: "Liveness check failed",
-      error: error.response?.data || error.message,
+      message: mxError?.errorMessage || mxError?.error || "Liveness check failed",
+      error: mxError || error.message,
     });
   }
 };
@@ -115,12 +116,13 @@ exports.detectFace = async (req, res) => {
       data: response.data,
     });
   } catch (error) {
-    console.error("MXFace Detect Error:", error.response?.data || error.message);
+    const mxError = error.response?.data;
+    console.error("MXFace Detect Error:", mxError || error.message);
 
     return res.status(502).json({
       status: false,
-      message: "Face detection failed",
-      error: error.response?.data || error.message,
+      message: mxError?.errorMessage || mxError?.error || "Face detection failed",
+      error: mxError || error.message,
     });
   }
 };
@@ -158,7 +160,11 @@ exports.enrollFace = async (req, res) => {
     }
 
     const groupId = await getGroupId();
-    const qualityThreshold = Number(process.env.MXFACE_QUALITY_THRESHOLD) || 80;
+    // Must not be stricter than the app's own local pre-check (detectFace,
+    // gated at MxFaceConfig.minFaceQuality = 40 client-side) - a photo the
+    // app already accepted as "good enough" getting rejected here purely on
+    // a higher quality bar is a confusing dead end for the user.
+    const qualityThreshold = Number(process.env.MXFACE_QUALITY_THRESHOLD) || 40;
 
     const response = await axios.post(
       `${MXFACE_BASE_URL}/FaceIdentity`,
@@ -172,9 +178,12 @@ exports.enrollFace = async (req, res) => {
     );
 
     if (response.data.errorCode || !response.data.faceIdentityId) {
+      console.error("MXFace Enroll rejected:", response.data);
       return res.status(400).json({
         status: false,
-        message: response.data.errorMessage || "Face enrollment failed",
+        message:
+          response.data.errorMessage ||
+          "Face enrollment failed. Please retake the photo in good, even lighting.",
       });
     }
 
@@ -187,11 +196,15 @@ exports.enrollFace = async (req, res) => {
       data: { hasFaceRegistered: true },
     });
   } catch (error) {
-    console.error("MXFace Enroll Error:", error.response?.data || error.message);
+    const mxError = error.response?.data;
+    console.error("MXFace Enroll Error:", mxError || error.message);
     return res.status(502).json({
       status: false,
-      message: "Face enrollment failed",
-      error: error.response?.data || error.message,
+      message:
+        mxError?.errorMessage ||
+        mxError?.error ||
+        "Face enrollment failed. Please retake the photo in good, even lighting.",
+      error: mxError || error.message,
     });
   }
 };
@@ -279,11 +292,12 @@ exports.verifyLoginFace = async (req, res) => {
       data: { isMatch },
     });
   } catch (error) {
-    console.error("MXFace Search Error:", error.response?.data || error.message);
+    const mxError = error.response?.data;
+    console.error("MXFace Search Error:", mxError || error.message);
     return res.status(502).json({
       status: false,
-      message: "Face verification failed",
-      error: error.response?.data || error.message,
+      message: mxError?.errorMessage || mxError?.error || "Face verification failed",
+      error: mxError || error.message,
     });
   }
 };
