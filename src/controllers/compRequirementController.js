@@ -97,7 +97,10 @@ const getAllJobs = async (req, res) => {
     page = parseInt(page) || 1;
     limit = parseInt(limit) || 100;
 
-    let filter = { status: 1 };
+    // Admin (authenticated) requests see jobs of every status so they can
+    // manage/reactivate inactive ones; the public route (no req.user) only
+    // ever sees active (status: 1) jobs.
+    let filter = req.user ? {} : { status: 1 };
 
     // LOCATION FILTER
     if (location) {
@@ -149,9 +152,9 @@ const getAllJobs = async (req, res) => {
 
     const data = await Job.find(filter)
       .select(
-        "company_logo job_title company_name salary salary_type job_locations experience order",
+        "company_logo job_title company_name salary salary_type job_locations experience order application_link status",
       )
-      .sort({ _id: -1 })
+      .sort({ order: 1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
