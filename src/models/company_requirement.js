@@ -24,10 +24,12 @@ const jobSchema = new mongoose.Schema({
     max: { type: Number, default: 0 },
   },
 
-  // per month / per annum
+  // per month / per annum — "per_month"/"per_annum" are legacy values that
+  // predate PM/PA and still exist on older documents; kept valid so editing
+  // an old job doesn't fail validation just for leaving this field untouched.
   salary_type: {
     type: String,
-    enum: ["PM", "PA"],
+    enum: ["PM", "PA", "per_month", "per_annum"],
     default: "PM",
   },
 
