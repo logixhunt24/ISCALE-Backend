@@ -115,9 +115,14 @@ const getFeaturesByCourse = async (req, res) => {
       });
     }
 
-    const data = await Feature.find({
-      m_feature_course: id,
-    }).sort({ _id: -1 });
+    // Same admin-sees-everything / public-sees-active-only split used by
+    // compRequirementController's getAllJobs - this handler is shared by
+    // both the authenticated admin route and the public one.
+    const filter = req.user
+      ? { m_feature_course: id }
+      : { m_feature_course: id, m_feature_status: 1 };
+
+    const data = await Feature.find(filter).sort({ _id: -1 });
 
     res.json({
       status: true,
