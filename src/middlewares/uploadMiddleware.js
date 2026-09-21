@@ -25,6 +25,8 @@ const storage = new CloudinaryStorage({
       folder = "categories/category-banner";
     } else if (file.fieldname === "m_course_banner") {
       folder = "courses/banner";
+    } else if (file.fieldname === "m_course_mega_banner") {
+      folder = "courses/mega-banner";
     } else if (file.fieldname === "m_course_pdf") {
       folder = "courses/pdf";
     } else if (file.fieldname === "m_course_feestructure") {
@@ -173,6 +175,18 @@ const fileFilter = (req, file, cb) => {
     } else {
       cb(
         new Error("Only JPEG, JPG, PNG images allowed for course banner"),
+        false,
+      );
+    }
+  }
+
+  // Course mega-menu card image - only images
+  else if (file.fieldname === "m_course_mega_banner") {
+    if (allowedImageTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error("Only JPEG, JPG, PNG images allowed for the mega-menu card image"),
         false,
       );
     }
@@ -592,6 +606,7 @@ const brandVideoMulter = multer({
 // ==================
 const courseUpload = upload.fields([
   { name: "m_course_banner", maxCount: 1 }, // Course Image (Required)
+  { name: "m_course_mega_banner", maxCount: 1 }, // Nav mega-menu card image (Optional, falls back to m_course_banner)
   { name: "m_course_pdf", maxCount: 1 }, // Course PDF (Optional)
   { name: "m_course_feestructure", maxCount: 1 }, // Fee Structure (Optional)
   { name: "m_course_brochure", maxCount: 1 }, // Brochure (Optional)

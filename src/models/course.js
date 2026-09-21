@@ -72,6 +72,20 @@ const courseSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Separate, optional image for the nav mega-menu's small course-card
+    // preview - the main banner above is designed for the course detail
+    // page hero and reads poorly shrunk down. Falls back to
+    // m_course_banner wherever it's unset.
+    m_course_mega_banner: {
+      type: String,
+      default: "",
+    },
+
+    m_course_mega_banner_public_id: {
+      type: String,
+      default: "",
+    },
+
     // m_course_pdf: {
     //   type: String,
     //   default: null,

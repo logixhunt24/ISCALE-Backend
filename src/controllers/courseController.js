@@ -67,6 +67,12 @@ const addCourse = async (req, res) => {
 
   if (banner?.public_id) uploadedFiles.push(banner.public_id);
 
+  const megaBanner = req.files?.m_course_mega_banner?.[0]
+    ? extractUploadedFile(req.files.m_course_mega_banner[0])
+    : null;
+
+  if (megaBanner?.public_id) uploadedFiles.push(megaBanner.public_id);
+
   const pdf = req.files?.m_course_pdf?.[0]
     ? extractUploadedFile(req.files.m_course_pdf[0])
     : null;
@@ -451,6 +457,9 @@ const addCourse = async (req, res) => {
       m_course_banner: banner?.url || "",
       m_course_banner_public_id: banner?.public_id || "",
 
+      m_course_mega_banner: megaBanner?.url || "",
+      m_course_mega_banner_public_id: megaBanner?.public_id || "",
+
       m_course_pdf: pdf?.url || "",
       m_course_pdf_public_id: pdf?.public_id || "",
 
@@ -660,6 +669,9 @@ const getAllCourses = async (req, res) => {
           ? course.m_course_category.m_category_name
           : "N/A",
         banner: course.m_course_banner,
+        // Falls back to the main banner wherever a course has no dedicated
+        // mega-menu image set, so existing courses don't go blank there.
+        mega_banner: course.m_course_mega_banner || course.m_course_banner,
         video: course.m_course_video_link,
         course_type: course.m_course_type === 1 ? 1 : 2,
         price: course.m_course_type === 1 ? "N/A" : course.m_course_price,
@@ -1246,6 +1258,14 @@ const updateCourse = async (req, res) => {
     uploadedFiles.push(banner.public_id);
   }
 
+  const megaBanner = req.files?.m_course_mega_banner?.[0]
+    ? extractUploadedFile(req.files.m_course_mega_banner[0])
+    : null;
+
+  if (megaBanner?.public_id) {
+    uploadedFiles.push(megaBanner.public_id);
+  }
+
   const pdf = req.files?.m_course_pdf?.[0]
     ? extractUploadedFile(req.files.m_course_pdf[0])
     : null;
@@ -1310,6 +1330,7 @@ const updateCourse = async (req, res) => {
     // old cloudinary public ids
 
     const oldBanner = course.m_course_banner_public_id;
+    const oldMegaBanner = course.m_course_mega_banner_public_id;
     const oldPdf = course.m_course_pdf_public_id;
     const oldFee = course.m_course_feestructure_public_id;
 
@@ -1768,6 +1789,11 @@ const updateCourse = async (req, res) => {
       updateData.m_course_banner_public_id = banner.public_id;
     }
 
+    if (megaBanner) {
+      updateData.m_course_mega_banner = megaBanner.url;
+      updateData.m_course_mega_banner_public_id = megaBanner.public_id;
+    }
+
     if (pdf) {
       updateData.m_course_pdf = pdf.url;
       updateData.m_course_pdf_public_id = pdf.public_id;
@@ -1831,6 +1857,14 @@ const updateCourse = async (req, res) => {
         await deleteFile(oldBanner);
       } catch (err) {
         console.error("Old banner delete failed:", err.message);
+      }
+    }
+
+    if (megaBanner && oldMegaBanner) {
+      try {
+        await deleteFile(oldMegaBanner);
+      } catch (err) {
+        console.error("Old mega-banner delete failed:", err.message);
       }
     }
 
@@ -2157,6 +2191,7 @@ const getCourseById = async (req, res) => {
       category: categoryName,
 
       banner: course.m_course_banner,
+      mega_banner: course.m_course_mega_banner || "",
       pdf: course.m_course_pdf,
       fee_structure: course.m_course_feestructure,
       brochure: course.m_course_brochure,
