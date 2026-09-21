@@ -58,6 +58,23 @@ const careerFitSchema = new mongoose.Schema({
     default: [],
   },
 
+  // The 3 small value-prop chips under the description ("Live Mentor
+  // Support", "Hands-on Projects", "Certificate Included" in the original
+  // hardcoded design). `icon` is a Lucide icon component name (e.g.
+  // "Rocket") picked from a fixed list in the admin UI, not an uploaded
+  // image - resolved to the actual component on the frontend. Falls back
+  // to the original 3 defaults when empty.
+  m_cf_feature_chips: {
+    type: [
+      {
+        _id: false,
+        label: { type: String, trim: true, required: true },
+        icon: { type: String, trim: true, default: "Sparkles" },
+      },
+    ],
+    default: [],
+  },
+
   m_cf_status: {
     type: Number,
     enum: [0, 1], // 0-Inactive, 1-Active

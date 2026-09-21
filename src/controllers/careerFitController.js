@@ -20,6 +20,24 @@ const parseIdArray = (raw) => {
   }
 };
 
+// m_cf_feature_chips arrives the same JSON-stringified way, as an array of
+// { label, icon } objects.
+const parseFeatureChips = (raw) => {
+  if (raw === undefined) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((c) => c && typeof c.label === "string" && c.label.trim())
+      .map((c) => ({
+        label: c.label.trim(),
+        icon: typeof c.icon === "string" && c.icon.trim() ? c.icon.trim() : "Sparkles",
+      }));
+  } catch {
+    return [];
+  }
+};
+
 // ===============================
 // ADMIN
 // ===============================
@@ -34,6 +52,7 @@ const addCareerFit = async (req, res) => {
       m_cf_order,
       m_cf_courses,
       m_cf_hiring_destinations,
+      m_cf_feature_chips,
     } = req.body;
 
     if (!m_cf_title) {
@@ -53,6 +72,7 @@ const addCareerFit = async (req, res) => {
       m_cf_keywords: m_cf_keywords || "",
       m_cf_courses: parseIdArray(m_cf_courses) || [],
       m_cf_hiring_destinations: parseIdArray(m_cf_hiring_destinations) || [],
+      m_cf_feature_chips: parseFeatureChips(m_cf_feature_chips) || [],
       m_cf_icon: icon?.url || "",
       m_cf_icon_public_id: icon?.public_id || "",
       m_cf_status: m_cf_status !== undefined ? Number(m_cf_status) : 1,
@@ -95,6 +115,7 @@ const updateCareerFit = async (req, res) => {
       m_cf_order,
       m_cf_courses,
       m_cf_hiring_destinations,
+      m_cf_feature_chips,
     } = req.body;
 
     if (m_cf_title !== undefined) careerFit.m_cf_title = m_cf_title.trim();
@@ -107,6 +128,8 @@ const updateCareerFit = async (req, res) => {
     const hiringDestinationIds = parseIdArray(m_cf_hiring_destinations);
     if (hiringDestinationIds !== undefined)
       careerFit.m_cf_hiring_destinations = hiringDestinationIds;
+    const featureChips = parseFeatureChips(m_cf_feature_chips);
+    if (featureChips !== undefined) careerFit.m_cf_feature_chips = featureChips;
 
     if (req.files?.m_cf_icon?.[0]) {
       const uploadedIcon = extractUploadedFile(req.files.m_cf_icon[0]);
