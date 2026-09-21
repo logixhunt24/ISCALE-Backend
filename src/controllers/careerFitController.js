@@ -1,5 +1,22 @@
+const mongoose = require("mongoose");
 const CareerFit = require("../models/career_fit");
 const { extractUploadedFile, deleteFile } = require("../services/storageService");
+
+const COURSE_POPULATE_FIELDS =
+  "m_course_title m_course_banner m_course_duration_web m_course_duration_app m_course_view";
+
+// m_cf_courses arrives from the admin form as a JSON-stringified array of
+// course ids (same convention as m_course_fee_tiers on the course form).
+const parseCourseIds = (raw) => {
+  if (raw === undefined) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((id) => mongoose.Types.ObjectId.isValid(id));
+  } catch {
+    return [];
+  }
+};
 
 // ===============================
 // ADMIN
@@ -7,8 +24,14 @@ const { extractUploadedFile, deleteFile } = require("../services/storageService"
 
 const addCareerFit = async (req, res) => {
   try {
-    const { m_cf_title, m_cf_desc, m_cf_keywords, m_cf_status, m_cf_order } =
-      req.body;
+    const {
+      m_cf_title,
+      m_cf_desc,
+      m_cf_keywords,
+      m_cf_status,
+      m_cf_order,
+      m_cf_courses,
+    } = req.body;
 
     if (!m_cf_title) {
       return res.status(400).json({
@@ -25,11 +48,14 @@ const addCareerFit = async (req, res) => {
       m_cf_title: m_cf_title.trim(),
       m_cf_desc: m_cf_desc || "",
       m_cf_keywords: m_cf_keywords || "",
+      m_cf_courses: parseCourseIds(m_cf_courses) || [],
       m_cf_icon: icon?.url || "",
       m_cf_icon_public_id: icon?.public_id || "",
       m_cf_status: m_cf_status !== undefined ? Number(m_cf_status) : 1,
       m_cf_order: m_cf_order !== undefined ? Number(m_cf_order) : 0,
     });
+
+    await careerFit.populate("m_cf_courses", COURSE_POPULATE_FIELDS);
 
     res.status(201).json({
       status: true,
@@ -54,14 +80,22 @@ const updateCareerFit = async (req, res) => {
 
     const oldIconPublicId = careerFit.m_cf_icon_public_id;
 
-    const { m_cf_title, m_cf_desc, m_cf_keywords, m_cf_status, m_cf_order } =
-      req.body;
+    const {
+      m_cf_title,
+      m_cf_desc,
+      m_cf_keywords,
+      m_cf_status,
+      m_cf_order,
+      m_cf_courses,
+    } = req.body;
 
     if (m_cf_title !== undefined) careerFit.m_cf_title = m_cf_title.trim();
     if (m_cf_desc !== undefined) careerFit.m_cf_desc = m_cf_desc;
     if (m_cf_keywords !== undefined) careerFit.m_cf_keywords = m_cf_keywords;
     if (m_cf_status !== undefined) careerFit.m_cf_status = Number(m_cf_status);
     if (m_cf_order !== undefined) careerFit.m_cf_order = Number(m_cf_order);
+    const courseIds = parseCourseIds(m_cf_courses);
+    if (courseIds !== undefined) careerFit.m_cf_courses = courseIds;
 
     if (req.files?.m_cf_icon?.[0]) {
       const uploadedIcon = extractUploadedFile(req.files.m_cf_icon[0]);
@@ -78,6 +112,7 @@ const updateCareerFit = async (req, res) => {
     careerFit.updated_at = new Date();
 
     const updated = await careerFit.save();
+    await updated.populate("m_cf_courses", COURSE_POPULATE_FIELDS);
 
     if (req.files?.m_cf_icon?.[0] && oldIconPublicId) {
       try {
@@ -137,6 +172,7 @@ const getAllCareerFits = async (req, res) => {
 
     const total = await CareerFit.countDocuments(filter);
     const data = await CareerFit.find(filter)
+      .populate("m_cf_courses", COURSE_POPULATE_FIELDS)
       .sort({ m_cf_order: 1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -182,10 +218,9 @@ const changeCareerFitStatus = async (req, res) => {
 
 const publicGetCareerFits = async (req, res) => {
   try {
-    const data = await CareerFit.find({ m_cf_status: 1 }).sort({
-      m_cf_order: 1,
-      _id: -1,
-    });
+    const data = await CareerFit.find({ m_cf_status: 1 })
+      .populate("m_cf_courses", COURSE_POPULATE_FIELDS)
+      .sort({ m_cf_order: 1, _id: -1 });
 
     res.json({ status: true, data });
   } catch (err) {
