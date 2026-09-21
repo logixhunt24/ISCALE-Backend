@@ -23,6 +23,8 @@ const storage = new CloudinaryStorage({
       folder = "categories/category-icon";
     } else if (file.fieldname === "category_banner") {
       folder = "categories/category-banner";
+    } else if (file.fieldname === "m_cf_icon") {
+      folder = "career-fit/icon";
     } else if (file.fieldname === "m_course_banner") {
       folder = "courses/banner";
     } else if (file.fieldname === "m_course_mega_banner") {
@@ -159,7 +161,8 @@ const fileFilter = (req, file, cb) => {
   // Category fields - only images
   if (
     file.fieldname === "category_icon" ||
-    file.fieldname === "category_banner"
+    file.fieldname === "category_banner" ||
+    file.fieldname === "m_cf_icon"
   ) {
     if (allowedImageTypes.includes(file.mimetype)) {
       cb(null, true);
@@ -627,6 +630,8 @@ const topicUpload = upload.fields([
 
 const packageUpload = upload.fields([{ name: "m_package_image", maxCount: 1 }]);
 
+const careerFitUpload = upload.fields([{ name: "m_cf_icon", maxCount: 1 }]);
+
 const thUpload = upload.fields([{ name: "th_icon", maxCount: 1 }]);
 
 const quizUpload = upload.fields([
@@ -784,6 +789,7 @@ module.exports = {
   subjectUpload,
   topicUpload,
   packageUpload,
+  careerFitUpload,
   thUpload,
   quizUpload,
   instructorUpload,
