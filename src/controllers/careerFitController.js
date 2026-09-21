@@ -4,10 +4,12 @@ const { extractUploadedFile, deleteFile } = require("../services/storageService"
 
 const COURSE_POPULATE_FIELDS =
   "m_course_title m_course_banner m_course_duration_web m_course_duration_app m_course_view";
+const PHD_POPULATE_FIELDS = "m_phd_name m_phd_logo";
 
-// m_cf_courses arrives from the admin form as a JSON-stringified array of
-// course ids (same convention as m_course_fee_tiers on the course form).
-const parseCourseIds = (raw) => {
+// m_cf_courses / m_cf_hiring_destinations arrive from the admin form as a
+// JSON-stringified array of ids (same convention as m_course_fee_tiers on
+// the course form).
+const parseIdArray = (raw) => {
   if (raw === undefined) return undefined;
   try {
     const arr = JSON.parse(raw);
@@ -31,6 +33,7 @@ const addCareerFit = async (req, res) => {
       m_cf_status,
       m_cf_order,
       m_cf_courses,
+      m_cf_hiring_destinations,
     } = req.body;
 
     if (!m_cf_title) {
@@ -48,14 +51,18 @@ const addCareerFit = async (req, res) => {
       m_cf_title: m_cf_title.trim(),
       m_cf_desc: m_cf_desc || "",
       m_cf_keywords: m_cf_keywords || "",
-      m_cf_courses: parseCourseIds(m_cf_courses) || [],
+      m_cf_courses: parseIdArray(m_cf_courses) || [],
+      m_cf_hiring_destinations: parseIdArray(m_cf_hiring_destinations) || [],
       m_cf_icon: icon?.url || "",
       m_cf_icon_public_id: icon?.public_id || "",
       m_cf_status: m_cf_status !== undefined ? Number(m_cf_status) : 1,
       m_cf_order: m_cf_order !== undefined ? Number(m_cf_order) : 0,
     });
 
-    await careerFit.populate("m_cf_courses", COURSE_POPULATE_FIELDS);
+    await careerFit.populate([
+      { path: "m_cf_courses", select: COURSE_POPULATE_FIELDS },
+      { path: "m_cf_hiring_destinations", select: PHD_POPULATE_FIELDS },
+    ]);
 
     res.status(201).json({
       status: true,
@@ -87,6 +94,7 @@ const updateCareerFit = async (req, res) => {
       m_cf_status,
       m_cf_order,
       m_cf_courses,
+      m_cf_hiring_destinations,
     } = req.body;
 
     if (m_cf_title !== undefined) careerFit.m_cf_title = m_cf_title.trim();
@@ -94,8 +102,11 @@ const updateCareerFit = async (req, res) => {
     if (m_cf_keywords !== undefined) careerFit.m_cf_keywords = m_cf_keywords;
     if (m_cf_status !== undefined) careerFit.m_cf_status = Number(m_cf_status);
     if (m_cf_order !== undefined) careerFit.m_cf_order = Number(m_cf_order);
-    const courseIds = parseCourseIds(m_cf_courses);
+    const courseIds = parseIdArray(m_cf_courses);
     if (courseIds !== undefined) careerFit.m_cf_courses = courseIds;
+    const hiringDestinationIds = parseIdArray(m_cf_hiring_destinations);
+    if (hiringDestinationIds !== undefined)
+      careerFit.m_cf_hiring_destinations = hiringDestinationIds;
 
     if (req.files?.m_cf_icon?.[0]) {
       const uploadedIcon = extractUploadedFile(req.files.m_cf_icon[0]);
@@ -112,7 +123,10 @@ const updateCareerFit = async (req, res) => {
     careerFit.updated_at = new Date();
 
     const updated = await careerFit.save();
-    await updated.populate("m_cf_courses", COURSE_POPULATE_FIELDS);
+    await updated.populate([
+      { path: "m_cf_courses", select: COURSE_POPULATE_FIELDS },
+      { path: "m_cf_hiring_destinations", select: PHD_POPULATE_FIELDS },
+    ]);
 
     if (req.files?.m_cf_icon?.[0] && oldIconPublicId) {
       try {
@@ -173,6 +187,7 @@ const getAllCareerFits = async (req, res) => {
     const total = await CareerFit.countDocuments(filter);
     const data = await CareerFit.find(filter)
       .populate("m_cf_courses", COURSE_POPULATE_FIELDS)
+      .populate("m_cf_hiring_destinations", PHD_POPULATE_FIELDS)
       .sort({ m_cf_order: 1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -220,6 +235,7 @@ const publicGetCareerFits = async (req, res) => {
   try {
     const data = await CareerFit.find({ m_cf_status: 1 })
       .populate("m_cf_courses", COURSE_POPULATE_FIELDS)
+      .populate("m_cf_hiring_destinations", PHD_POPULATE_FIELDS)
       .sort({ m_cf_order: 1, _id: -1 });
 
     res.json({ status: true, data });

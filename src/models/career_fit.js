@@ -47,6 +47,17 @@ const careerFitSchema = new mongoose.Schema({
     default: [],
   },
 
+  // Explicit, admin-picked hiring-destination logos to show under this
+  // goal's "Prime Hiring Destinations" strip. Falls back to the full
+  // gallery (/api/hiring-destination) when empty, so the strip isn't blank
+  // for a goal that hasn't been customized yet.
+  m_cf_hiring_destinations: {
+    type: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "prime_hiring_destination" },
+    ],
+    default: [],
+  },
+
   m_cf_status: {
     type: Number,
     enum: [0, 1], // 0-Inactive, 1-Active
