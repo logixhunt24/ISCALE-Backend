@@ -280,6 +280,29 @@ const courseSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Hero stat strip fields on the course detail page - previously the
+    // frontend guessed at field names for these (commencement_date,
+    // delivery_mode, etc.) that never existed here, so these 3 stats always
+    // showed hardcoded placeholder text ("Batch Starts Soon"/"Live"/
+    // "Included") for every course regardless of what was actually true.
+    m_course_commencement_date: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    m_course_delivery_mode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    m_course_job_assistance: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // m_course_trainee: {
     //   type: String,
     //   // required: true,

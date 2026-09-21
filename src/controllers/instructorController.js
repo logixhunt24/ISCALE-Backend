@@ -14,6 +14,7 @@ const addInstructor = async (req, res) => {
       m_instructor_phone,
       m_linkedin_profile,
       m_instructor_bio,
+      m_instructor_designation,
       m_instructor_experience,
       m_instructor_skills,
       m_instructor_status,
@@ -107,6 +108,7 @@ const addInstructor = async (req, res) => {
       m_linkedin_profile,
       m_instructor_profile: imagePath,
       m_instructor_bio,
+      m_instructor_designation,
       m_instructor_experience,
       m_instructor_skills: skills,
       m_instructor_status:
@@ -213,6 +215,7 @@ const updateInstructor = async (req, res) => {
       m_instructor_email,
       m_instructor_phone,
       m_instructor_bio,
+      m_instructor_designation,
       m_linkedin_profile,
       m_instructor_experience,
       m_instructor_skills,
@@ -277,6 +280,9 @@ const updateInstructor = async (req, res) => {
     }
 
     if (m_instructor_bio) instructor.m_instructor_bio = m_instructor_bio;
+
+    if (m_instructor_designation !== undefined)
+      instructor.m_instructor_designation = m_instructor_designation;
 
     if (m_instructor_experience)
       instructor.m_instructor_experience = m_instructor_experience;

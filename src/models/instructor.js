@@ -45,6 +45,16 @@ const instructorSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Job title shown on the course detail page's instructor card (e.g.
+    // "Senior Data Scientist at Google", "Lead AI Instructor") - previously
+    // that card always showed a literal hardcoded "Mentor" for every
+    // instructor since no field existed for this.
+    m_instructor_designation: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
     m_instructor_experience: {
       type: String, // "5 years", "3+ years"
       default: null,

@@ -122,6 +122,9 @@ const addCourse = async (req, res) => {
 
       m_course_duration_app,
       m_course_duration_web,
+      m_course_commencement_date,
+      m_course_delivery_mode,
+      m_course_job_assistance,
 
       m_course_trainee,
       m_course_certificate,
@@ -510,6 +513,9 @@ const addCourse = async (req, res) => {
 
       m_course_duration_app: numericValues.m_course_duration_app,
       m_course_duration_web: numericValues.m_course_duration_web,
+      m_course_commencement_date: m_course_commencement_date || "",
+      m_course_delivery_mode: m_course_delivery_mode || "",
+      m_course_job_assistance: m_course_job_assistance || "",
 
       // m_course_trainee: m_course_trainee
       //   ? new mongoose.Types.ObjectId(m_course_trainee)
@@ -1698,6 +1704,16 @@ const updateCourse = async (req, res) => {
       updateData.m_course_duration_web = parsed.value;
     }
 
+    if (isValid(body.m_course_commencement_date)) {
+      updateData.m_course_commencement_date = body.m_course_commencement_date;
+    }
+    if (isValid(body.m_course_delivery_mode)) {
+      updateData.m_course_delivery_mode = body.m_course_delivery_mode;
+    }
+    if (isValid(body.m_course_job_assistance)) {
+      updateData.m_course_job_assistance = body.m_course_job_assistance;
+    }
+
     // =========================
     // Trainee
     // =========================
@@ -2170,7 +2186,9 @@ const getCourseById = async (req, res) => {
     m_instructor_name
     m_instructor_profile
     m_instructor_bio
+    m_instructor_designation
     m_instructor_experience
+    m_instructor_skills
     m_linkedin_profile
     m_instructor_status
   `,
@@ -2224,6 +2242,9 @@ const getCourseById = async (req, res) => {
 
       duration_app: course.m_course_duration_app,
       duration_web: course.m_course_duration_web,
+      commencement_date: course.m_course_commencement_date || "",
+      delivery_mode: course.m_course_delivery_mode || "",
+      job_assistance: course.m_course_job_assistance || "",
 
       popular: course.m_course_popular,
       badge_text: course.m_course_badge_text || "",
@@ -2240,6 +2261,10 @@ const getCourseById = async (req, res) => {
           name: t.m_instructor_name,
           image: t.m_instructor_profile,
           linkedin: t.m_linkedin_profile,
+          designation: t.m_instructor_designation || "",
+          experience: t.m_instructor_experience || "",
+          bio: t.m_instructor_bio || "",
+          expertise: t.m_instructor_skills || [],
         })),
 
       view: course.m_course_view,

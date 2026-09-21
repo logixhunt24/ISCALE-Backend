@@ -14,6 +14,7 @@ const addUserReview = async (req, res) => {
       user_name,
       user_designation,
       user_review,
+      rating,
     } = req.body;
 
     // ==========================================
@@ -50,10 +51,12 @@ const addUserReview = async (req, res) => {
     // CREATE
     // ==========================================
 
+    const parsedRating = Number(rating);
     const data = new UserReview({
       user_name: user_name || null,
       user_designation: user_designation || null,
       user_review: user_review || null,
+      rating: parsedRating >= 1 && parsedRating <= 5 ? parsedRating : 5,
       user_image: image,
     });
 
@@ -341,6 +344,7 @@ const updateUserReview = async (req, res) => {
       user_name,
       user_designation,
       user_review,
+      rating,
       status,
     } = req.body;
 
@@ -368,6 +372,13 @@ const updateUserReview = async (req, res) => {
 
     if (status !== undefined && status !== "") {
       review.status = status;
+    }
+
+    if (rating !== undefined && rating !== "") {
+      const parsedRating = Number(rating);
+      if (parsedRating >= 1 && parsedRating <= 5) {
+        review.rating = parsedRating;
+      }
     }
 
     // ==========================================
