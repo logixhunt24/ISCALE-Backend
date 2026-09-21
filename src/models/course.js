@@ -154,6 +154,24 @@ const courseSchema = new mongoose.Schema(
       default: [],
     },
 
+    // Feature-comparison checklist shown on the course page's pricing
+    // cards (one row per feature, one column per fee tier). `included` is
+    // positional - included[0] applies to m_course_fee_tiers[0], etc. -
+    // rather than keyed by tier name, so it stays correct if a tier is
+    // renamed. Every feature shows in every tier's list; unincluded ones
+    // render struck-through/greyed instead of being omitted, per the
+    // reference pricing table this was modeled on.
+    m_course_fee_features: {
+      type: [
+        {
+          _id: false,
+          label: { type: String, trim: true, required: true },
+          included: { type: [Boolean], default: [] },
+        },
+      ],
+      default: [],
+    },
+
     m_course_partner_logos: {
       type: [
         {

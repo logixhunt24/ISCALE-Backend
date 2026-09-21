@@ -57,6 +57,26 @@ const parseFeeTiers = (value) => {
   }
 };
 
+// m_course_fee_features arrives the same JSON-stringified way as
+// m_course_fee_tiers - one row per feature, `included` positional against
+// m_course_fee_tiers (included[0] -> tier index 0, etc).
+const parseFeeFeatures = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((f) => f && f.label)
+      .map((f) => ({
+        label: String(f.label).trim(),
+        included: Array.isArray(f.included) ? f.included.map(Boolean) : [],
+      }));
+  } catch {
+    return [];
+  }
+};
+
 // ADD COURSE
 const addCourse = async (req, res) => {
   const uploadedFiles = [];
@@ -109,6 +129,7 @@ const addCourse = async (req, res) => {
       m_course_offer_price,
       m_course_pricing_mode,
       m_course_fee_tiers,
+      m_course_fee_features,
       m_course_access_type,
       m_course_access_days,
 
@@ -483,6 +504,7 @@ const addCourse = async (req, res) => {
       m_course_offer_price: Number(m_course_offer_price) || 0,
       m_course_pricing_mode: Number(m_course_pricing_mode) === 2 ? 2 : 1,
       m_course_fee_tiers: parseFeeTiers(m_course_fee_tiers),
+      m_course_fee_features: parseFeeFeatures(m_course_fee_features),
 
       m_course_partner_logos: partnerLogos.map((f) => ({
         url: f.url,
@@ -1574,6 +1596,10 @@ const updateCourse = async (req, res) => {
       updateData.m_course_fee_tiers = parseFeeTiers(body.m_course_fee_tiers);
     }
 
+    if (body.m_course_fee_features !== undefined) {
+      updateData.m_course_fee_features = parseFeeFeatures(body.m_course_fee_features);
+    }
+
     // =========================
     // Access Type
     // =========================
@@ -2235,6 +2261,7 @@ const getCourseById = async (req, res) => {
       offer_price: course.m_course_offer_price,
       pricing_mode: course.m_course_pricing_mode || 1,
       fee_tiers: course.m_course_fee_tiers || [],
+      fee_features: course.m_course_fee_features || [],
       partner_logos: course.m_course_partner_logos || [],
 
       status: course.m_course_status === 1 ? 1 : 0,
