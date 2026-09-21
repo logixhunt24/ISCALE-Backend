@@ -175,6 +175,17 @@ const courseSchema = new mongoose.Schema(
       enum: [0, 1], // 0-No, 1-Yes
     },
 
+    // Free-text ribbon shown on the nav mega-menu's course card (e.g.
+    // "Popular", "New", "Bestseller", "50% Off") - independent of
+    // m_course_popular above, which only drives the separate
+    // popular-courses listing/filter. Empty means no ribbon shown.
+    m_course_badge_text: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 40,
+    },
+
     m_course_recomended: {
       type: Number,
       default: 0,

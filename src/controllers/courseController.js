@@ -113,6 +113,7 @@ const addCourse = async (req, res) => {
       m_course_access_days,
 
       m_course_popular,
+      m_course_badge_text,
       m_course_recomended,
       m_course_lifetime,
       m_course_keyword,
@@ -492,6 +493,7 @@ const addCourse = async (req, res) => {
           : null,
 
       m_course_popular: Number(m_course_popular) || 0,
+      m_course_badge_text: m_course_badge_text?.trim() || "",
       m_course_recomended: Number(m_course_recomended) || 0,
       m_course_lifetime: Number(m_course_lifetime) || 0,
       m_course_keyword: m_course_keyword || null,
@@ -683,6 +685,7 @@ const getAllCourses = async (req, res) => {
         status: course.m_course_status === 1 ? 1 : 0,
         slug: course.m_course_slug,
         popular: course.m_course_popular === 1,
+        badge_text: course.m_course_badge_text || "",
 
         // Extra Fields
         views: course.m_course_view,
@@ -1613,6 +1616,14 @@ const updateCourse = async (req, res) => {
       updateData.m_course_popular = Number(body.m_course_popular);
     }
 
+    // Uses "in body" rather than isValid() - unlike the other optional text
+    // fields here, clearing the badge back to empty (removing the ribbon
+    // entirely) is a normal, expected admin action, not something to
+    // silently ignore.
+    if ("m_course_badge_text" in body) {
+      updateData.m_course_badge_text = (body.m_course_badge_text || "").trim();
+    }
+
     if (isValid(body.m_course_recomended)) {
       updateData.m_course_recomended = Number(body.m_course_recomended);
     }
@@ -2215,6 +2226,7 @@ const getCourseById = async (req, res) => {
       duration_web: course.m_course_duration_web,
 
       popular: course.m_course_popular,
+      badge_text: course.m_course_badge_text || "",
       recommended: course.m_course_recomended,
       lifetime: course.m_course_lifetime,
 
