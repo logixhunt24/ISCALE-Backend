@@ -670,6 +670,7 @@ const getAllCourses = async (req, res) => {
         partner_logos: course.m_course_partner_logos || [],
         status: course.m_course_status === 1 ? 1 : 0,
         slug: course.m_course_slug,
+        popular: course.m_course_popular === 1,
 
         // Extra Fields
         views: course.m_course_view,
