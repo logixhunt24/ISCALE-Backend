@@ -58,8 +58,9 @@ const parseFeeTiers = (value) => {
 };
 
 // m_course_fee_features arrives the same JSON-stringified way as
-// m_course_fee_tiers - one row per feature, `included` positional against
-// m_course_fee_tiers (included[0] -> tier index 0, etc).
+// m_course_fee_tiers - one row per feature, `included`/`values` positional
+// against m_course_fee_tiers (index 0 -> tier index 0, etc). row_type
+// "text" rows carry per-tier text (e.g. a duration) instead of a checkmark.
 const parseFeeFeatures = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -70,7 +71,9 @@ const parseFeeFeatures = (value) => {
       .filter((f) => f && f.label)
       .map((f) => ({
         label: String(f.label).trim(),
+        row_type: f.row_type === 'text' ? 'text' : 'check',
         included: Array.isArray(f.included) ? f.included.map(Boolean) : [],
+        values: Array.isArray(f.values) ? f.values.map((v) => String(v || '').trim()) : [],
       }));
   } catch {
     return [];

@@ -155,18 +155,21 @@ const courseSchema = new mongoose.Schema(
     },
 
     // Feature-comparison checklist shown on the course page's pricing
-    // cards (one row per feature, one column per fee tier). `included` is
-    // positional - included[0] applies to m_course_fee_tiers[0], etc. -
-    // rather than keyed by tier name, so it stays correct if a tier is
-    // renamed. Every feature shows in every tier's list; unincluded ones
-    // render struck-through/greyed instead of being omitted, per the
-    // reference pricing table this was modeled on.
+    // cards (one row per feature, one column per fee tier). `included`/
+    // `values` are positional - index 0 applies to m_course_fee_tiers[0],
+    // etc. - rather than keyed by tier name, so they stay correct if a tier
+    // is renamed. A row is either a check/cross row (row_type "check",
+    // using `included`) or a per-tier text row (row_type "text", using
+    // `values` - e.g. "6 Months" vs "2 Year" vs "5 Year" for a duration
+    // row), per the reference pricing table this was modeled on.
     m_course_fee_features: {
       type: [
         {
           _id: false,
           label: { type: String, trim: true, required: true },
+          row_type: { type: String, enum: ['check', 'text'], default: 'check' },
           included: { type: [Boolean], default: [] },
+          values: { type: [String], default: [] },
         },
       ],
       default: [],
