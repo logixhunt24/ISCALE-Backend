@@ -72,10 +72,14 @@ const getTHByCourse = async (req, res) => {
   try {
     const { course_id } = req.params;
 
-    const data = await Training.find({
-      course_id,
-      type: 1,
-    }).sort({ _id: -1 });
+    // Same admin-sees-all / public-sees-active-only split used elsewhere
+    // (e.g. compRequirementController's getAllJobs) - this handler is
+    // shared by both the authenticated admin route and the public one.
+    const filter = req.user
+      ? { course_id, type: 1 }
+      : { course_id, type: 1, active: 1 };
+
+    const data = await Training.find(filter).sort({ _id: -1 });
 
     res.json({ status: true, data });
   } catch (err) {
