@@ -788,11 +788,18 @@ const settingUpload = upload.fields([
 
 const phoneImageUpload = upload.single("phone_image");
 
+const whoWeAreUpload = upload.fields([
+  { name: "card_image_0", maxCount: 1 },
+  { name: "card_image_1", maxCount: 1 },
+  { name: "card_image_2", maxCount: 1 },
+]);
+
 module.exports = {
   upload,
   courseUpload,
   featureUpload,
   toolUpload,
+  whoWeAreUpload,
   subjectUpload,
   topicUpload,
   packageUpload,

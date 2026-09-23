@@ -43,6 +43,7 @@ const userReviewsRoutes = require("./userReviewsRoutes");
 const videoRoutes = require("./videoRoutes");
 const locationSettingRoutes = require("./locationSettingRoutes");
 const brandVideoRoutes = require("./brandVideoRoutes");
+const whoWeAreRoutes = require("./whoWeAreRoutes");
 const phoneImageRoutes = require("./phoneImageRoutes");
 
 
@@ -90,6 +91,7 @@ router.use("/user-reviews", userReviewsRoutes);
 router.use("/video", videoRoutes);
 router.use("/location", locationSettingRoutes);
 router.use("/brand-videos", brandVideoRoutes);
+router.use("/who-we-are", whoWeAreRoutes);
 router.use("/phone-images", phoneImageRoutes);
 
 module.exports = router; 
