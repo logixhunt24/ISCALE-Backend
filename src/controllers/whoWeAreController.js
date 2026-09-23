@@ -9,6 +9,8 @@ const DEFAULTS = {
   m_heading: "Know About iScale Learning",
   m_description:
     "A community-driven upskilling platform built to take learners from fundamentals to job-ready skills — live mentorship, hands-on projects, and a direct path into the careers this industry is actually hiring for.",
+  m_news_pill_text: "Our Journal & Insights",
+  m_news_heading: "From Our Blog",
 };
 
 // Single editable section - lazily creates the one document on first read
@@ -26,6 +28,8 @@ const shape = (doc) => ({
   pill_text: doc.m_pill_text,
   heading: doc.m_heading,
   description: doc.m_description,
+  news_pill_text: doc.m_news_pill_text,
+  news_heading: doc.m_news_heading,
   cards: (doc.m_cards || []).map((c) => ({
     title: c.title || "",
     image: c.image || "",
@@ -61,7 +65,14 @@ const updateWhoWeAre = async (req, res) => {
   const uploadedFiles = [];
   try {
     const doc = await getOrCreate();
-    const { m_pill_text, m_heading, m_description, m_cards } = req.body;
+    const {
+      m_pill_text,
+      m_heading,
+      m_description,
+      m_news_pill_text,
+      m_news_heading,
+      m_cards,
+    } = req.body;
 
     const parsedCards = parseCards(m_cards);
     const existingCards = doc.m_cards || [];
@@ -95,6 +106,10 @@ const updateWhoWeAre = async (req, res) => {
     if (m_heading !== undefined) doc.m_heading = m_heading.trim();
     if (m_description !== undefined)
       doc.m_description = m_description.trim();
+    if (m_news_pill_text !== undefined)
+      doc.m_news_pill_text = m_news_pill_text.trim();
+    if (m_news_heading !== undefined)
+      doc.m_news_heading = m_news_heading.trim();
     doc.m_cards = nextCards;
 
     await doc.save();

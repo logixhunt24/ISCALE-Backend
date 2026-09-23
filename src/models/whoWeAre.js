@@ -19,6 +19,20 @@ const whoWeAreSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Pill + heading for the separate "iScale News" homepage section
+    // (NewsTickerSection.jsx) - its actual news cards already come from the
+    // news collection, only this header text was hardcoded before.
+    m_news_pill_text: {
+      type: String,
+      default: "Our Journal & Insights",
+      trim: true,
+    },
+    m_news_heading: {
+      type: String,
+      default: "From Our Blog",
+      trim: true,
+    },
+
     // Exactly 3 highlight/press cards shown below the description -
     // positional (index 0/1/2), not a free list, since the homepage layout
     // is a fixed 3-card row (mirrors m_course_fee_features' positional
