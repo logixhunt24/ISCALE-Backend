@@ -114,7 +114,7 @@ const getPublicTopics = async (req, res) => {
       ml_status: 1,
     })
       .select("_id ml_title") //  only safe fields
-      .sort({ _id: -1 });
+      .sort({ ml_seq: 1, _id: 1 });
 
     res.json({
       status: true,
@@ -135,7 +135,7 @@ const getPrivateTopics = async (req, res) => {
     const topics = await Lecture.find({
       ml_subject: subject_id,
       ml_status: 1,
-    }).sort({ _id: -1 });
+    }).sort({ ml_seq: 1, _id: 1 });
 
     res.json({
       status: true,
@@ -158,7 +158,7 @@ const getTopicsBySubject = async (req, res) => {
 
     const data = await Lecture.find({
       ml_subject: subject_id,
-    }).sort({ _id: -1 });
+    }).sort({ ml_seq: 1, _id: 1 });
 
     res.json({
       status: true,
@@ -193,6 +193,7 @@ const updateTopic = async (req, res) => {
       ml_yt_type,
       ml_video_id,
       ml_vdocipher_id,
+      ml_seq,
     } = req.body;
 
     // Effective type after this update (falls back to the topic's existing type
@@ -234,6 +235,7 @@ const updateTopic = async (req, res) => {
       }
     }
     if (ml_status !== undefined) topic.ml_status = Number(ml_status);
+    if (ml_seq !== undefined && ml_seq !== "" && !isNaN(Number(ml_seq))) topic.ml_seq = Number(ml_seq);
     if (!topic.ml_course) {
       const subject = await Subject.findById(topic.ml_subject);
       if (subject?.m_subject_course) {
