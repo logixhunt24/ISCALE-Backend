@@ -2284,6 +2284,19 @@ const getCourseById = async (req, res) => {
       lang: course.m_course_lang,
       order: course.m_course_order,
 
+      intro: course.m_course_intro || "",
+      certificate: course.m_course_certificate,
+
+      // Graphy access details are admin-only; this handler also backs the
+      // unauthenticated /public-course/:id route.
+      ...(req.route?.path === "/public-course/:id"
+        ? {}
+        : {
+            app_g_link: course.m_course_app_g_link || "",
+            web_g_link: course.m_course_web_g_link || "",
+            graphy_instruction: course.m_course_graphy_instruction || "",
+          }),
+
       trainees: (course.m_course_trainee || [])
         .filter(Boolean)
         .map((t) => ({
