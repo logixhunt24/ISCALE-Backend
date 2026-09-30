@@ -38,7 +38,7 @@ const appGetBanners = async (req, res) => {
       banner_link: b.m_banner_link || "",
       banner_status: b.m_banner_status || "",
     }));
-    return res.json({ status: true, response: "success", data });
+    return res.json({ status: true, response: "success", banner: data });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
