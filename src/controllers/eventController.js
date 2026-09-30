@@ -289,7 +289,7 @@ const getAllEventsDropdown = async (req, res) => {
 const appGetAllEvents = async (req, res) => {
   try {
     const events = await Event.find({
-      m_event_status: 1,
+      m_event_status: { $in: [1, "1", "Active", "active"] },
     })
       .populate("m_event_category")
       .sort({ m_event_added_on: -1 });
