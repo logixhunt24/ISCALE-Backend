@@ -1,6 +1,7 @@
 const Category = require("../models/category");
 const Course = require("../models/course");
 const Subject = require("../models/subject");
+const { toPublicUrl } = require("../utils/imageUrl");
 
 const {
   extractUploadedFile,
@@ -280,21 +281,15 @@ exports.appGetCategoryWiseCourses = async (req, res) => {
       const formattedCourses = courses.map((course) => ({
         course_id: course._id,
         course_name: course.m_course_title || "",
-        course_image: course.m_course_banner || "",
+        course_image: toPublicUrl(course.m_course_banner),
         course_price: String(course.m_course_price || 0),
         course_offerprice: String(course.m_course_offer_price || 0),
         course_views: String(course.m_course_view || 0),
         course_rating: String(course.m_course_rating || 0),
         course_duration: String(course.m_course_duration_web || 0),
         course_reviews: String(course.m_course_reviews || 0),
-
-        // currently same as rating
         total_rating: String(course.m_course_rating || 0),
-
-        // abhi calculation nahi hai schema me
         totalPercent: 0,
-
-        // subject collection connect hone par dynamic kar lena
         total_subjects: "0",
       }));
 
@@ -340,8 +335,9 @@ exports.appGetCategories = async (req, res) => {
 
           total_course: String(totalCourses),
 
-          category_image:
+          category_image: toPublicUrl(
             category.m_category_banner || category.m_category_icon || "",
+          ),
         };
       }),
     );
@@ -445,7 +441,7 @@ exports.appGetCoursesByCategory = async (req, res) => {
         return {
           course_id: String(course._id),
           course_name: course.m_course_title || "",
-          course_image: course.m_course_banner || "",
+          course_image: toPublicUrl(course.m_course_banner),
 
           course_price: String(actualPrice),
           course_offerprice: String(offerPrice),

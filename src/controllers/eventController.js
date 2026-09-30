@@ -1,6 +1,7 @@
 const Event = require("../models/event");
 const EventCategory = require("../models/event_category");
 const slugify = require("slugify");
+const { toPublicUrl } = require("../utils/imageUrl");
 const fs = require("fs");
 
 const deleteUploadedFiles = (files) => {
@@ -308,7 +309,7 @@ const appGetAllEvents = async (req, res) => {
         // schema me nahi hai
         m_event_for: "",
 
-        m_event_banner: event.m_event_banner || "",
+        m_event_banner: toPublicUrl(event.m_event_banner),
 
         m_event_date_start: event.m_event_date_start
           ? event.m_event_date_start.toISOString().split("T")[0]
@@ -340,7 +341,7 @@ const appGetAllEvents = async (req, res) => {
 
         m_event_desc: event.m_event_desc || "",
 
-        m_event_file: event.m_event_file || "",
+        m_event_file: toPublicUrl(event.m_event_file),
 
         m_event_no_of_enroll: String(event.m_event_no_of_enroll || ""),
 
@@ -437,7 +438,7 @@ const appGetEventDetails = async (req, res) => {
           // schema me nahi hai
           m_event_for: "",
 
-          m_event_banner: event.m_event_banner || "",
+          m_event_banner: toPublicUrl(event.m_event_banner),
 
           m_event_date_start: event.m_event_date_start
             ? event.m_event_date_start.toISOString().split("T")[0]
@@ -471,7 +472,7 @@ const appGetEventDetails = async (req, res) => {
 
           m_event_desc: event.m_event_desc || "",
 
-          m_event_file: event.m_event_file || "",
+          m_event_file: toPublicUrl(event.m_event_file),
 
           m_event_no_of_enroll: event.m_event_no_of_enroll
             ? String(event.m_event_no_of_enroll)

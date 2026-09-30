@@ -1,5 +1,6 @@
 const Candidate = require("../models/candidates");
 const Enrollment = require("../models/course_enrollment");
+const { toPublicUrl } = require("../utils/imageUrl");
 // const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { generateTokenUser } = require("../utils/token");
@@ -268,7 +269,7 @@ exports.loginWithPassword = async (req, res) => {
           user_contact: String(user.c_contact),
           user_email: user.c_email || "",
           user_gender: user.c_gender || "",
-          c_profile_image: user.c_profile_image || "",
+          c_profile_image: toPublicUrl(user.c_profile_image),
         },
       ],
     });
@@ -405,7 +406,7 @@ exports.loginVerifyOtp = async (req, res) => {
           user_contact: String(user.c_contact),
           user_email: user.c_email || "",
           user_gender: user.c_gender || "",
-          c_profile_image: user.c_profile_image || "",
+          c_profile_image: toPublicUrl(user.c_profile_image),
         },
       ],
     });

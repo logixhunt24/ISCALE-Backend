@@ -1,4 +1,5 @@
 const Candidate = require("../models/candidates");
+const { toPublicUrl } = require("../utils/imageUrl");
 
 
 // const getMyProfile = async (req, res) => {
@@ -140,7 +141,7 @@ const appGetMyProfile = async (req, res) => {
 
         user_gender: user.c_gender || "",
 
-        c_profile_image: user.c_profile_image || "",
+        c_profile_image: toPublicUrl(user.c_profile_image),
 
         user_dob: user.c_dob
           ? new Date(user.c_dob).toLocaleDateString("en-GB").replace(/\//g, "-")

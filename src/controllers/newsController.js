@@ -1,4 +1,5 @@
 const News = require("../models/news");
+const { toPublicUrl } = require("../utils/imageUrl");
 
 const fs = require("fs");
 
@@ -215,7 +216,7 @@ const appGetBlogsForApp = async (req, res) => {
               .replace(/\s+/g, "-")
           : "",
 
-        m_news_image: item.m_snews_image || null,
+        m_news_image: toPublicUrl(item.m_snews_image),
 
         m_news_image1: null,
         m_news_image2: null,
@@ -293,7 +294,7 @@ const appGetSingleBlogForApp = async (req, res) => {
               .replace(/\s+/g, "-")
           : "",
 
-        m_news_image: blog.m_snews_image || null,
+        m_news_image: toPublicUrl(blog.m_snews_image),
 
         m_news_image1: null,
         m_news_image2: null,

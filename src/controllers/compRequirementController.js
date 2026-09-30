@@ -1,5 +1,6 @@
 const Job = require("../models/company_requirement");
 const JobApplication = require("../models/company_requirement_application");
+const { toPublicUrl } = require("../utils/imageUrl");
 const fs = require("fs");
 
 const addJob = async (req, res) => {
@@ -471,7 +472,7 @@ const appGetAllJobs = async (req, res) => {
 
         m_ju_title: job.job_title || "",
 
-        m_ju_image: job.company_logo || "",
+        m_ju_image: toPublicUrl(job.company_logo),
 
         m_ju_desc: job.job_description || "",
 
@@ -546,7 +547,7 @@ const appGetJobDetails = async (req, res) => {
           m_ju_emp_type: job.emp_type || "",
           m_ju_role_respo: job.role_respo || "",
           m_ju_desire_skill: job.desire_skill || "",
-          m_ju_image: job.company_logo || "",
+          m_ju_image: toPublicUrl(job.company_logo),
           m_ju_desc: job.job_description || "",
           m_ju_func_area: job.func_area || "",
           m_ju_interview_for: job.interview_for || "",

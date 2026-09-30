@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { toPublicUrl } = require("../utils/imageUrl");
 
 const Banner = require("../models/banners");
 const Webinar = require("../models/webinar");
@@ -29,8 +30,15 @@ const Feature = require("../models/course_feature");
 
 const appGetBanners = async (req, res) => {
   try {
-    const data = await Banner.find({ m_banner_status: "running" }).sort({ createdAt: -1 });
-    return res.json({ status: true, data });
+    const docs = await Banner.find({ m_banner_status: "running" }).sort({ createdAt: -1 });
+    const data = docs.map((b) => ({
+      banner_id: String(b._id),
+      banner_name: b.m_banner_title || "",
+      banner_image: toPublicUrl(b.m_banner_image),
+      banner_link: b.m_banner_link || "",
+      banner_status: b.m_banner_status || "",
+    }));
+    return res.json({ status: true, response: "success", data });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
@@ -42,8 +50,14 @@ const appGetBanners = async (req, res) => {
 
 const appGetWebinarList = async (req, res) => {
   try {
-    const data = await Webinar.find({ m_webinar_status: 1 }).sort({ m_webinar_date: -1 });
-    return res.json({ status: true, data });
+    const docs = await Webinar.find({ m_webinar_status: 1 }).sort({ m_webinar_date: -1 });
+    const data = docs.map((w) => ({
+      ...w.toObject(),
+      m_webinar_id: String(w._id),
+      m_webinar_banner: toPublicUrl(w.m_webinar_banner),
+      m_webinar_speaker_image: toPublicUrl(w.m_webinar_speaker_image),
+    }));
+    return res.json({ status: true, response: "success", data });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }
@@ -169,10 +183,14 @@ const appValidateCoupon = async (req, res) => {
 
 const appGetOffers = async (req, res) => {
   try {
-    const data = await Offer.find({ m_offer_status: 1 })
+    const docs = await Offer.find({ m_offer_status: 1 })
       .sort({ m_offer_priority: 1, createdAt: -1 });
-
-    return res.json({ status: true, data });
+    const data = docs.map((o) => ({
+      ...o.toObject(),
+      m_offer_id: String(o._id),
+      m_offer_image: toPublicUrl(o.m_offer_image),
+    }));
+    return res.json({ status: true, response: "success", data });
   } catch (err) {
     return res.status(500).json({ status: false, message: err.message });
   }

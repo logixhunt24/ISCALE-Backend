@@ -1,5 +1,6 @@
 const Course = require("../models/course");
 const Category = require("../models/category");
+const { toPublicUrl } = require("../utils/imageUrl");
 
 const TestPackage = require("../models/test_package");
 const TestCategory = require("../models/test_categories");
@@ -137,8 +138,7 @@ const appSearch = async (req, res) => {
             item.m_course_category?.m_category_name ||
             "",
 
-          course_image:
-            item.m_course_banner || "",
+          course_image: toPublicUrl(item.m_course_banner),
 
           course_views:
             item.m_course_view || 0,

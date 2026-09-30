@@ -1,5 +1,6 @@
 console.log("course Controller Hit");
 
+const { toPublicUrl } = require("../utils/imageUrl");
 const Course = require("../models/course");
 const slugify = require("slugify");
 // const fs = require("fs");
@@ -2503,7 +2504,7 @@ const appGetCourseTeamList = async (req, res) => {
       id: member._id,
       member_name: member.member_name || "",
       member_position: member.member_position || "",
-      member_image: member.member_image || "",
+      member_image: toPublicUrl(member.member_image),
       member_expertise: member.member_expertise || "",
       member_experience: String(member.member_experience || ""),
       member_linkedin: member.member_linkedin || "",
@@ -2586,13 +2587,13 @@ const appGetCourseDetailsById = async (req, res) => {
 
           m_course_slung: course.m_course_slug || "",
 
-          course_pdf: course.m_course_pdf || "",
+          course_pdf: toPublicUrl(course.m_course_pdf),
 
           category_id: course.m_course_category?._id || "",
 
           category_name: course.m_course_category?.m_category_name || "",
 
-          course_image: course.m_course_banner || "",
+          course_image: toPublicUrl(course.m_course_banner),
 
           course_intro: course.m_course_intro || "",
 
@@ -2693,59 +2694,44 @@ const appGetTopTrendingCourses = async (req, res) => {
 
       {
         $project: {
-          totalEnrollments: 1,
-
-          m_course_id: "$course._id",
-          m_course_lang: "$course.m_course_lang",
-          m_course_category: "$course.m_course_category",
-          m_course_cat_slug: "$course.m_course_cat_slug",
-          m_course_title: "$course.m_course_title",
-          m_course_slug: "$course.m_course_slug",
-          m_course_intro: "$course.m_course_intro",
-          m_course_banner: "$course.m_course_banner",
-          m_course_pdf: "$course.m_course_pdf",
-          m_course_video_link: "$course.m_course_video_link",
-          m_course_description: "$course.m_course_description",
-          m_course_type: "$course.m_course_type",
-          m_course_price: "$course.m_course_price",
-          m_course_offer_price: "$course.m_course_offer_price",
-          m_course_popular: "$course.m_course_popular",
-          m_course_recomended: "$course.m_course_recomended",
-          m_course_keyword: "$course.m_course_keyword",
-          m_course_status: "$course.m_course_status",
-          m_course_status_web: "$course.m_course_status_web",
-          m_course_view: "$course.m_course_view",
-          m_course_like: "$course.m_course_like",
-          m_course_dislike: "$course.m_course_dislike",
-          m_course_rating: "$course.m_course_rating",
-          m_course_reviews: "$course.m_course_reviews",
-          m_course_brochure: "$course.m_course_brochure",
-          m_course_duration_app: "$course.m_course_duration_app",
-          m_course_duration_web: "$course.m_course_duration_web",
-          m_course_trainee: "$course.m_course_trainee",
-          m_course_feestructure: "$course.m_course_feestructure",
-          m_course_certificate: "$course.m_course_certificate",
-          m_course_app_g_link: "$course.m_course_app_g_link",
-          m_course_web_g_link: "$course.m_course_web_g_link",
-          m_course_graphy_instruction: "$course.m_course_graphy_instruction",
-          m_course_share: "$course.m_course_share",
-          m_course_order: "$course.m_course_order",
-
-          m_category_id: "$category._id",
-          m_category_name: "$category.m_category_name",
-          m_category_slug: "$category.m_category_slug",
-          m_category_desc: "$category.m_category_desc",
-          m_category_icon: "$category.m_category_icon",
-          m_category_banner: "$category.m_category_banner",
-
+          _rawBanner: "$course.m_course_banner",
+          course_id: "$course._id",
+          course_name: "$course.m_course_title",
+          course_image: "$course.m_course_banner",
+          course_intro: "$course.m_course_intro",
+          course_desc: "$course.m_course_description",
+          video_link: "$course.m_course_video_link",
+          course_price: "$course.m_course_price",
+          course_offerprice: "$course.m_course_offer_price",
+          course_views: "$course.m_course_view",
+          course_rating: "$course.m_course_rating",
+          course_reviews: "$course.m_course_reviews",
+          course_duration: "$course.m_course_duration_app",
+          category_id: "$category._id",
+          category_name: "$category.m_category_name",
           trending_count: "$totalEnrollments",
+          total_subjects: { $literal: "0" },
+          totalPercent: { $literal: 0 },
         },
       },
     ]);
 
+    const data = trendingCourses.map((c) => ({
+      ...c,
+      course_id: String(c.course_id || ""),
+      course_image: toPublicUrl(c.course_image),
+      course_price: String(c.course_price || 0),
+      course_offerprice: String(c.course_offerprice || 0),
+      course_views: String(c.course_views || 0),
+      course_rating: String(c.course_rating || 0),
+      course_reviews: String(c.course_reviews || 0),
+      course_duration: String(c.course_duration || 0),
+      category_id: String(c.category_id || ""),
+    }));
+
     return res.status(200).json({
       response: "success",
-      data: trendingCourses,
+      data,
     });
   } catch (error) {
     console.error(error);
