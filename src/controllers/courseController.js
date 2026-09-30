@@ -2613,8 +2613,7 @@ const appGetCourseDetailsById = async (req, res) => {
 
           course_duration: String(course.m_course_duration_web || 0),
 
-          // ObjectId Array
-          course_trainee: course.m_course_trainee || [],
+          course_trainee: String((course.m_course_trainee || []).length),
 
           course_updated_on: course.m_course_modified,
 
