@@ -258,14 +258,19 @@ exports.loginWithPassword = async (req, res) => {
 
     return res.status(200).json({
       status: true,
+      response: "success",
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        name: user.c_display_name,
-        email: user.c_email,
-        mobile: user.c_contact,
-      },
+      user: [
+        {
+          user_id: String(user._id),
+          user_name: user.c_display_name || user.c_first_name || "",
+          user_contact: String(user.c_contact),
+          user_email: user.c_email || "",
+          user_gender: user.c_gender || "",
+          c_profile_image: user.c_profile_image || "",
+        },
+      ],
     });
   } catch (error) {
     return res.status(500).json({
