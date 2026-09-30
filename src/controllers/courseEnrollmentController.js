@@ -9,7 +9,7 @@ const enrollCourse = async (req, res) => {
 
     const user_id = req.user.id;
 
-    const { course_id, coupon_code } = req.body;
+    const { course_id, coupon_code, transaction_id } = req.body;
 
     // ===============================
     // VALIDATION
@@ -73,6 +73,7 @@ const enrollCourse = async (req, res) => {
         payable_amount: 0,
 
         coupon_code: coupon_code || null,
+        transaction_id: transaction_id || null,
 
         access_type: "lifetime",
 
@@ -166,6 +167,7 @@ const enrollCourse = async (req, res) => {
         payable_amount: payableAmount,
 
         coupon_id: coupon_code || null,
+        transaction_id: transaction_id || null,
 
         access_type,
 

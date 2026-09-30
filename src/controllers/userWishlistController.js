@@ -1212,7 +1212,7 @@ const appAddToWishlist = async (req, res) => {
 const appGetWishlist = async (req, res) => {
   try {
     const user_id = req.user.id;
-    const { wishlist_type } = req.body;
+    const wishlist_type = req.query.wishlist_type;
 
     if (!wishlist_type) {
       return res.status(400).json({

@@ -18,6 +18,7 @@ const profileRoutes = require("../routes/profileRoutes");
 const newsRoutes = require("../routes/newsRoutes");
 const searchRoutes = require("../routes/searchRoutes");
 const batchRoutes = require("../routes/batchRoutes");
+const appMobileRoutes = require("../routes/appMobileRoutes");
 
 
 
@@ -36,6 +37,9 @@ router.use("/profile", profileRoutes);
 router.use("/news", newsRoutes);
 router.use("/search", searchRoutes);
 router.use("/batch", batchRoutes);
+
+// Phase 4 mobile routes (banner, webinar, coupon, offers, progress, video, test-series, reviews)
+router.use("/", appMobileRoutes);
 
 
 

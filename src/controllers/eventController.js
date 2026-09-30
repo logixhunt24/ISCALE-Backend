@@ -401,7 +401,7 @@ const appGetAllEvents = async (req, res) => {
 
 const appGetEventDetails = async (req, res) => {
   try {
-    const { event_id } = req.body;
+    const event_id = req.query.event_id;
 
     if (!event_id) {
       return res.status(400).json({

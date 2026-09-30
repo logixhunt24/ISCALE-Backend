@@ -10,8 +10,14 @@ const {
   getCourseAccessDetails,
   appGetMyCourses,
   appGetEnrollmentStatus,
-  appGetCertificateStatus
+  appGetCertificateStatus,
+  appRequestCertificate,
+  appVerifyCertificate,
 } = require("../controllers/enrolledCoursesController");
+
+const {
+  appGetUserCourseSubjectTopic,
+} = require("../controllers/appMobileController");
 
 router.get(
   "/free-courses",
@@ -46,5 +52,11 @@ router.post(
 );
 
 router.post("/get/certificate",authMiddleware,userMiddleware, appGetCertificateStatus);
+
+router.post("/get_user_course_subject_topic", authMiddleware, userMiddleware, appGetUserCourseSubjectTopic);
+
+// Certificate request & verification (Android stubs — previously missing)
+router.post("/request_certificate", authMiddleware, userMiddleware, appRequestCertificate);
+router.post("/verify_certificate", appVerifyCertificate);
 
 module.exports = router;

@@ -159,6 +159,8 @@ router.get(
 );
 
 router.get("/public/city/dropdown", locationController.getCityDropdown);
+// Android POSTs with state_id in form body
+router.post("/public/city/dropdown", locationController.getCityDropdown);
 
 // DELETE CITY
 router.delete(

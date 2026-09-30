@@ -387,16 +387,22 @@ exports.loginVerifyOtp = async (req, res) => {
 
     const token = generateTokenUser(user);
 
+    // Return user as array with Android-compatible field names
     return res.status(200).json({
       status: true,
-      message: "Login successful",
+      response: "success",
+      message: "OTP verified successfully",
       token,
-      user: {
-        id: user._id,
-        name: user.c_display_name,
-        email: user.c_email,
-        mobile: user.c_contact,
-      },
+      user: [
+        {
+          user_id: String(user._id),
+          user_name: user.c_display_name || user.c_first_name || "",
+          user_contact: String(user.c_contact),
+          user_email: user.c_email || "",
+          user_gender: user.c_gender || "",
+          c_profile_image: user.c_profile_image || "",
+        },
+      ],
     });
   } catch (error) {
     return res.status(500).json({
@@ -993,6 +999,173 @@ exports.resetPassword = async (req, res) => {
     return res.status(200).json({
       status: true,
       message: "Password updated successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
+
+// ── Android app registration ──────────────────────────────────────────────────
+// Single-step signup: collects all user details, creates the account, and
+// sends OTP in one call. The Android RegistrationActivity calls this before
+// the OTP screen so the user fills details first, then verifies their number.
+exports.appSignup = async (req, res) => {
+  try {
+    const { c_name, mobile, email, whatsapp, gender } = req.body;
+
+    if (!c_name || !mobile || !email || !whatsapp) {
+      return res.status(400).json({
+        status: false,
+        message: "Name, mobile, email and whatsapp are required",
+      });
+    }
+
+    if (String(mobile).length !== 10) {
+      return res.status(400).json({
+        status: false,
+        message: "Mobile number must be 10 digits",
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        status: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    // Check for duplicate mobile
+    const existing = await Candidate.findOne(contactQuery(mobile));
+    if (existing && existing.c_first_name) {
+      return res.status(400).json({
+        status: false,
+        message: "Mobile number is already registered",
+      });
+    }
+
+    // Check for duplicate email
+    const emailExists = await Candidate.findOne({ c_email: email.toLowerCase() });
+    if (emailExists) {
+      return res.status(400).json({
+        status: false,
+        message: "Email is already registered",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+
+    let user;
+    if (existing) {
+      // Temp record already created by a prior send-otp call — update it
+      existing.c_first_name = c_name;
+      existing.c_display_name = c_name;
+      existing.c_email = email.toLowerCase();
+      existing.c_whatsapp = whatsapp;
+      if (gender) existing.c_gender = gender;
+      existing.is_lms_student = 1;
+      existing.c_user_otp = otp;
+      existing.c_otp_expiry = otpExpiry;
+      await existing.save();
+      user = existing;
+    } else {
+      user = await Candidate.create({
+        c_contact: String(mobile),
+        c_first_name: c_name,
+        c_display_name: c_name,
+        c_email: email.toLowerCase(),
+        c_whatsapp: String(whatsapp),
+        c_gender: gender || "",
+        is_lms_student: 1,
+        c_user_otp: otp,
+        c_otp_expiry: otpExpiry,
+        c_register_date: new Date(),
+        c_user_status: 1,
+        c_mobile_verified: 0,
+      });
+    }
+
+    const message = `${otp} is the OTP to authenticate login credential. Do not share with anyone. - The iScale`;
+    await sendSms(message, String(mobile), "1307173398514201568");
+
+    return res.status(200).json({
+      status: true,
+      response: "success",
+      message: "OTP sent successfully",
+      user: [
+        {
+          user_id: String(user._id),
+          user_name: user.c_display_name || c_name,
+          user_contact: String(user.c_contact),
+          user_email: user.c_email || email,
+          user_gender: user.c_gender || gender || "",
+        },
+      ],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
+
+// ── Android app password reset ────────────────────────────────────────────────
+// Called by UpdatePasswordActivity after OTP verification, for both:
+//   SET=0  new-user first-time password creation
+//   SET=1  forgot-password reset (no current password available)
+// No JWT required — OTP verification already proved ownership of the number.
+exports.appResetPassword = async (req, res) => {
+  try {
+    const { mobile, newPassword, confirmPassword } = req.body;
+
+    if (!mobile || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        status: false,
+        message: "Mobile, new password and confirm password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        status: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        status: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    const user = await Candidate.findOne(contactQuery(mobile));
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.c_password = hashedPassword;
+    user.c_password_update = 1;
+    user.c_mobile_verified = 1;
+    user.c_user_status = 1;
+    await user.save();
+
+    const token = generateTokenUser(user);
+
+    return res.status(200).json({
+      status: true,
+      response: "success",
+      message: "Password set successfully",
+      token,
     });
   } catch (error) {
     return res.status(500).json({

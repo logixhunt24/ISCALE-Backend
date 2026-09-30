@@ -64,6 +64,10 @@ router.post("/create-password",registerMiddleware, authController.createPassword
 
 
 
+// Android app registration & password reset (no JWT required)
+router.post("/app-signup", authController.appSignup);
+router.post("/app-reset-password", authController.appResetPassword);
+
 // Forget Password
 router.post("/send-forgot-password-otp", authController.sendForgotPasswordOtp);
 

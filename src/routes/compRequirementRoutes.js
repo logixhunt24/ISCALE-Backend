@@ -3,6 +3,10 @@ const router = express.Router();
 
 const jobController = require("../controllers/compRequirementController");
 const { jobUpload } = require("../middlewares/uploadMiddleware");
+const {
+  appInsertJobEnroll,
+  appCheckJobEnrolled,
+} = require("../controllers/appMobileController");
 
 const { adminMiddleware } = require("../middlewares/adminMiddleware");
 const { authMiddleware } = require("../middlewares/authMiddleware");
@@ -101,5 +105,8 @@ router.post(
   userMiddleware,
   jobController.appGetJobDetails,
 );
+
+router.post("/insert_job_enrollment", authMiddleware, userMiddleware, appInsertJobEnroll);
+router.post("/check_job_enrolled", authMiddleware, userMiddleware, appCheckJobEnrolled);
 
 module.exports = router;

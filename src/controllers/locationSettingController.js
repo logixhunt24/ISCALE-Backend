@@ -522,15 +522,19 @@ const getStateDropdown = async (req, res) => {
 
     return res.status(200).send({
       status: true,
-
+      response: "success",
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
         totalRecords: totalCount,
         perPage: limit,
       },
-
       data,
+      // Android-compatible format
+      states: data.map((doc) => ({
+        m_state_id: String(doc._id),
+        m_state_name: doc.m_state_name,
+      })),
     });
   } catch (error) {
     return res.status(500).send({
@@ -1051,6 +1055,11 @@ const getCityDropdown = async (req, res) => {
       m_city_state,
     } = req.query;
 
+    // Android posts state_id in form body (POST /public/city/dropdown)
+    if (!m_city_state && req.body && req.body.state_id) {
+      m_city_state = req.body.state_id;
+    }
+
     page = Number(page);
     limit = Number(limit);
 
@@ -1124,15 +1133,19 @@ const getCityDropdown = async (req, res) => {
 
     return res.status(200).send({
       status: true,
-
+      response: "success",
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
         totalRecords: totalCount,
         perPage: limit,
       },
-
       data,
+      // Android-compatible format
+      city: data.map((doc) => ({
+        m_location_id: String(doc._id),
+        m_location_city: doc.m_city_city,
+      })),
     });
   } catch (error) {
     return res.status(500).send({

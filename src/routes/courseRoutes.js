@@ -25,6 +25,12 @@ const {
   appGetTopTrendingCourses
 } = require("../controllers/courseController");
 
+const {
+  appGetCourseFaq,
+  appGetCourseSubjectTopic,
+  appGetCourseFeatures,
+} = require("../controllers/appMobileController");
+
 router.post(
   "/add-course",
   authMiddleware,
@@ -100,5 +106,9 @@ router.post(
 router.post("/course_details", authMiddleware,userMiddleware, appGetCourseDetailsById);
 
 router.get("/trending_course", authMiddleware,userMiddleware,appGetTopTrendingCourses);
+
+router.post("/course_faq", appGetCourseFaq);
+router.post("/get_course_subject_topic", appGetCourseSubjectTopic);
+router.post("/get_course_features", appGetCourseFeatures);
 
 module.exports = router;

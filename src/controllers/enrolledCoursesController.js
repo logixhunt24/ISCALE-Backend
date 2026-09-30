@@ -660,6 +660,74 @@ const appGetCertificateStatus = async (req, res) => {
 };
 
 
+const appRequestCertificate = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { course_id } = req.body;
+
+    if (!course_id) {
+      return res.status(400).json({ status: false, response: "failed", message: "course_id is required" });
+    }
+
+    const enrollment = await Enrollment.findOne({ user_id: userId, course_id });
+    if (!enrollment) {
+      return res.status(404).json({ status: false, response: "failed", message: "Enrollment not found" });
+    }
+
+    if (enrollment.certificate_status === 1) {
+      return res.status(400).json({ status: false, response: "failed", message: "Certificate request already submitted" });
+    }
+
+    enrollment.certificate_status = 1;
+    enrollment.certificate_declined_reason = null;
+    await enrollment.save();
+
+    return res.status(200).json({ status: true, response: "success", message: "Certificate request submitted successfully" });
+  } catch (error) {
+    return res.status(500).json({ status: false, response: "error", message: error.message });
+  }
+};
+
+const appVerifyCertificate = async (req, res) => {
+  try {
+    const { course_id, certificate_number } = req.body;
+
+    if (!certificate_number) {
+      return res.status(400).json({ status: false, response: "failed", message: "certificate_number is required" });
+    }
+
+    const filter = { certificate_no: certificate_number };
+    if (course_id) filter.course_id = course_id;
+
+    const enrollment = await Enrollment.findOne(filter)
+      .populate("course_id", "ml_course_name")
+      .populate("user_id", "c_first_name c_display_name");
+
+    if (!enrollment) {
+      return res.status(200).json({ status: false, response: "failed", message: "Certificate not found or invalid" });
+    }
+
+    const courseName = enrollment.course_id?.ml_course_name || "";
+    const studentName = enrollment.user_id?.c_display_name || enrollment.user_id?.c_first_name || "";
+
+    return res.status(200).json({
+      status: true,
+      response: "success",
+      message: "Certificate verified",
+      certificate: {
+        certificate_number,
+        course_name: courseName,
+        student_name: studentName,
+        approved_on: enrollment.certificate_approved_at
+          ? enrollment.certificate_approved_at.toISOString().split("T")[0]
+          : "",
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, response: "error", message: error.message });
+  }
+};
+
 module.exports = {
   getEnrolledFreeCourses,
   getEnrolledPremiumCourses,
@@ -667,5 +735,7 @@ module.exports = {
   getCourseAccessDetails,
   appGetMyCourses,
   appGetEnrollmentStatus,
-  appGetCertificateStatus
+  appGetCertificateStatus,
+  appRequestCertificate,
+  appVerifyCertificate,
 };
