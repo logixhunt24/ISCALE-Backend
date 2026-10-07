@@ -148,6 +148,7 @@ const addCourse = async (req, res) => {
       m_course_duration_app,
       m_course_duration_web,
       m_course_commencement_date,
+      m_course_language_text,
       m_course_delivery_mode,
       m_course_job_assistance,
 
@@ -540,6 +541,7 @@ const addCourse = async (req, res) => {
       m_course_duration_app: numericValues.m_course_duration_app,
       m_course_duration_web: numericValues.m_course_duration_web,
       m_course_commencement_date: m_course_commencement_date || "",
+      m_course_language_text: m_course_language_text || "",
       m_course_delivery_mode: m_course_delivery_mode || "",
       m_course_job_assistance: m_course_job_assistance || "",
 
@@ -1737,6 +1739,10 @@ const updateCourse = async (req, res) => {
     if (isValid(body.m_course_commencement_date)) {
       updateData.m_course_commencement_date = body.m_course_commencement_date;
     }
+    // Resent on every edit-form save, so an empty string clears it.
+    if (body.m_course_language_text !== undefined) {
+      updateData.m_course_language_text = String(body.m_course_language_text).trim();
+    }
     if (isValid(body.m_course_delivery_mode)) {
       updateData.m_course_delivery_mode = body.m_course_delivery_mode;
     }
@@ -2274,6 +2280,7 @@ const getCourseById = async (req, res) => {
       duration_app: course.m_course_duration_app,
       duration_web: course.m_course_duration_web,
       commencement_date: course.m_course_commencement_date || "",
+      language: course.m_course_language_text || "",
       delivery_mode: course.m_course_delivery_mode || "",
       job_assistance: course.m_course_job_assistance || "",
 

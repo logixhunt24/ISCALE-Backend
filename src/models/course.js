@@ -306,6 +306,15 @@ const courseSchema = new mongoose.Schema(
     // delivery_mode, etc.) that never existed here, so these 3 stats always
     // showed hardcoded placeholder text ("Batch Starts Soon"/"Live"/
     // "Included") for every course regardless of what was actually true.
+    // Free-text languages shown on the course page (e.g. "English, Hindi") -
+    // separate from the numeric m_course_lang enum above, which can only
+    // hold one of three fixed values.
+    m_course_language_text: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     m_course_commencement_date: {
       type: String,
       default: "",
