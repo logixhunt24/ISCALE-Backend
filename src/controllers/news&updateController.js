@@ -89,7 +89,10 @@ const updateNews = async (req, res) => {
 
 const getAllNews = async (req, res) => {
   try {
-    const data = await News.find()
+    // Same admin-vs-public split as the other shared controllers: req.user is
+    // only set by authMiddleware, so the public mount only sees active posts.
+    const filter = req.user ? {} : { m_news_status: 1 };
+    const data = await News.find(filter)
       .select(
         "m_news_title m_news_intro m_news_image m_news_description m_news_added_on m_news_status m_news_order",
       )
