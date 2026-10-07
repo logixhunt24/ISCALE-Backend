@@ -3,6 +3,7 @@ const Feature = require("../models/course_feature");
 const Tool = require("../models/course_tools");
 const FAQ = require("../models/course_faq");
 const Subject = require("../models/subject");
+const CourseModule = require("../models/course_module");
 const Lecture = require("../models/lecture");
 const LectureProgress = require("../models/lecture_progress");
 const TestPackage = require("../models/test_package");
@@ -84,6 +85,9 @@ const deleteCourseCascade = async (courseId) => {
 
     await Subject.findByIdAndDelete(subject._id);
   }
+
+  // Modules (their subjects were deleted above)
+  await CourseModule.deleteMany({ m_module_course: courseId });
 
   // ==========================
   // FEATURES

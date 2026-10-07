@@ -11,6 +11,13 @@ const ModuleSchema = new mongoose.Schema({
     ref: "course",
     required: true,
   },
+  // Optional parent module (Module -> Subject -> Topic). Null for subjects
+  // that predate modules or haven't been grouped yet.
+  m_subject_module: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "course_module",
+    default: null,
+  },
   m_subject_title: {
     type: String,
     required: true,

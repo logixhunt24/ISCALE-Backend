@@ -4,6 +4,21 @@ const Lecture = require("../models/lecture");
 // const fs = require("fs");
 const mongoose = require("mongoose");
 const { deleteFile } = require("../services/storageService");
+const CourseModule = require("../models/course_module");
+
+// Resolves the optional parent-module field from a request body: undefined
+// means "not sent", ""/"null" means "no module", anything else must be a
+// module that belongs to the same course.
+const resolveModule = async (raw, courseId) => {
+  if (raw === undefined) return { skip: true };
+  if (raw === "" || raw === null || raw === "null") return { value: null };
+  if (!mongoose.Types.ObjectId.isValid(raw)) {
+    return { error: "Invalid module" };
+  }
+  const found = await CourseModule.findOne({ _id: raw, m_module_course: courseId });
+  if (!found) return { error: "Module not found for this course" };
+  return { value: found._id };
+};
 
 // ADD SUBJECT
 const addSubject = async (req, res) => {
@@ -21,6 +36,7 @@ const addSubject = async (req, res) => {
       m_subject_desc,
       m_subject_status,
       m_subject_seq,
+      m_subject_module,
       // m_subject_for,
     } = req.body;
 
@@ -54,9 +70,18 @@ const addSubject = async (req, res) => {
     //   icon = req.files.m_subject_icon[0].path;
     // }
 
+    const moduleResult = await resolveModule(m_subject_module, m_subject_course);
+    if (moduleResult.error) {
+      if (req.files?.m_subject_icon) {
+        await deleteFile(req.files.m_subject_icon[0].filename);
+      }
+      return res.status(400).json({ status: false, message: moduleResult.error });
+    }
+
     const subject = new Subject({
       m_subject_title,
       m_subject_course,
+      m_subject_module: moduleResult.skip ? null : moduleResult.value,
       // m_subject_course_slug: course.slug,
       m_subject_icon: icon,
       m_subject_icon_public_id: iconPublicId,
@@ -181,6 +206,8 @@ const getSubjectsByCourse = async (req, res) => {
       created_at: subject.created_at,
       updated_at: subject.updated_at,
 
+      m_subject_module: subject.m_subject_module || null,
+
       lectures: lectureMap[subject._id.toString()] || [],
     }));
 
@@ -297,8 +324,17 @@ const updateSubject = async (req, res) => {
       });
     }
 
-    const { m_subject_title, m_subject_desc, m_subject_status, m_subject_seq } =
+    const { m_subject_title, m_subject_desc, m_subject_status, m_subject_seq, m_subject_module } =
       req.body;
+
+    const moduleResult = await resolveModule(m_subject_module, subject.m_subject_course);
+    if (moduleResult.error) {
+      if (req.files?.m_subject_icon) {
+        await deleteFile(req.files.m_subject_icon[0].filename);
+      }
+      return res.status(400).json({ status: false, message: moduleResult.error });
+    }
+    if (!moduleResult.skip) subject.m_subject_module = moduleResult.value;
 
     if (m_subject_title) subject.m_subject_title = m_subject_title;
     if (m_subject_desc) subject.m_subject_desc = m_subject_desc;
