@@ -71,7 +71,11 @@ const getMyProfile = async (req, res) => {
         registrationDate: user.c_register_date,
         firstName: user.c_first_name,
         lastName: user.c_last_name,
-        parentName: user.c_user_parent,
+        // The web Settings form saves the guardian into c_guardian (+ relation);
+        // c_user_parent is the older field nothing writes anymore, kept as a fallback.
+        parentName: user.c_guardian || user.c_user_parent,
+        guardianName: user.c_guardian || user.c_user_parent || "",
+        guardianRelation: user.c_guardian_relation || "",
         mobileNumber: user.c_contact,
         hasMobile: Boolean(user.c_contact),
         altMobileNumber: user.c_alt_contact,
@@ -170,7 +174,7 @@ const appGetMyProfile = async (req, res) => {
 
         user_fcm_id: user.c_fcm_id || "",
 
-        parent_name: user.c_user_parent || "",
+        parent_name: user.c_guardian || user.c_user_parent || "",
 
         user_occupation: user.m_occupation || "",
 

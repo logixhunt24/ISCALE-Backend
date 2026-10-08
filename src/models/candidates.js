@@ -124,6 +124,7 @@ const candidateSchema = new mongoose.Schema({
   m_occupation: { type: String, default: null },
 
   c_guardian: { type: String, default: null },
+  c_guardian_relation: { type: String, default: null },
 
   c_current_address1: { type: String, default: null },
   c_current_address2: { type: String, default: null },
