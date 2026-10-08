@@ -7,7 +7,7 @@ const { extractUploadedFile, deleteFile } = require("../services/storageService"
 
 const addDestination = async (req, res) => {
   try {
-    const { m_phd_name, m_phd_status, m_phd_order } = req.body;
+    const { m_phd_name, m_phd_status, m_phd_order, m_phd_experience } = req.body;
 
     const logo = req.files?.m_phd_logo?.[0]
       ? extractUploadedFile(req.files.m_phd_logo[0])
@@ -22,6 +22,7 @@ const addDestination = async (req, res) => {
 
     const destination = await PrimeHiringDestination.create({
       m_phd_name: m_phd_name || "",
+      m_phd_experience: m_phd_experience || "",
       m_phd_logo: logo.url,
       m_phd_logo_public_id: logo.public_id,
       m_phd_status: m_phd_status !== undefined ? Number(m_phd_status) : 1,
@@ -51,9 +52,11 @@ const updateDestination = async (req, res) => {
 
     const oldLogoPublicId = destination.m_phd_logo_public_id;
 
-    const { m_phd_name, m_phd_status, m_phd_order } = req.body;
+    const { m_phd_name, m_phd_status, m_phd_order, m_phd_experience } = req.body;
 
     if (m_phd_name !== undefined) destination.m_phd_name = m_phd_name;
+    if (m_phd_experience !== undefined)
+      destination.m_phd_experience = m_phd_experience;
     if (m_phd_status !== undefined)
       destination.m_phd_status = Number(m_phd_status);
     if (m_phd_order !== undefined)

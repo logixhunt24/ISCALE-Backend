@@ -23,6 +23,13 @@ const primeHiringDestinationSchema = new mongoose.Schema({
     default: "",
   },
 
+  // Free text, e.g. "0-1", "0-2" or "5" (years of experience required)
+  m_phd_experience: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
   m_phd_status: {
     type: Number,
     enum: [0, 1], // 0-Inactive, 1-Active
