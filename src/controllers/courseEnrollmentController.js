@@ -103,94 +103,14 @@ const enrollCourse = async (req, res) => {
     // ===============================
     // PAID COURSE
     // ===============================
+    // Paid enrollments are created only by /api/checkout/verify, after a
+    // Razorpay payment has been signature-verified. This endpoint used to mark
+    // them paid without any payment at all.
 
     if (course.m_course_type === 2) {
-
-      // TEMP PAYMENT STATUS
-      const payment_status = 1;
-
-      // ===============================
-      // ACCESS LOGIC
-      // ===============================
-
-      let expiry_date = null;
-
-      let access_type = "lifetime";
-
-      if (course.m_course_access_type === "limited") {
-
-        access_type = "limited";
-
-        expiry_date = new Date();
-
-        expiry_date.setDate(
-          expiry_date.getDate() + course.m_course_access_days
-        );
-      }
-
-      // ===============================
-      // PRICE CALCULATION
-      // ===============================
-
-      const originalAmount =
-        course.m_course_price || 0;
-
-      const offerAmount =
-        course.m_course_offer_price || originalAmount;
-
-      const discountAmount =
-        originalAmount - offerAmount;
-
-      const payableAmount =
-        offerAmount;
-
-      // ===============================
-      // CREATE ENROLLMENT
-      // ===============================
-
-      const enroll = await Enrollment.create({
-        user_id,
-        course_id,
-
-        course_type: 2,
-
-        payment_status,
-
-        amount: payableAmount,
-
-        original_amount: originalAmount,
-
-        offer_amount: offerAmount,
-
-        discount_amount: discountAmount,
-
-        payable_amount: payableAmount,
-
-        coupon_id: coupon_code || null,
-        transaction_id: transaction_id || null,
-
-        access_type,
-
-        expiry_date,
-
-        progress: 0,
-
-        status: 1,
-
-        app_status: 1,
-        android_status: 1,
-        ios_status: 1,
-
-        test_series_status: 0,
-        live_class_status: 0,
-
-        certificate_status: 0,
-      });
-
-      return res.status(200).json({
-        status: true,
-        message: "Enrolled successfully (Paid)",
-        data: enroll,
+      return res.status(402).json({
+        status: false,
+        message: "This is a paid course - complete the payment on the checkout page to enroll",
       });
     }
 
