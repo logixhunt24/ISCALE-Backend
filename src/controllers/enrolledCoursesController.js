@@ -6,6 +6,7 @@ const Subject = require("../models/subject");
 const Lecture = require("../models/lecture");
 const LectureProgress = require("../models/lecture_progress");
 const Candidate = require("../models/candidates");
+const { isInvoiceable } = require("./invoiceController");
 
 // GET ENROLLED FREE COURSES
 const getEnrolledFreeCourses = async (req, res) => {
@@ -286,6 +287,8 @@ const getEnrolledCourseFullDetails = async (req, res) => {
         access_type: enrollment.access_type,
         expiry_date: enrollment.expiry_date,
       },
+
+      invoice_available: isInvoiceable(enrollment),
 
       subjects: subjectWiseData,
     });

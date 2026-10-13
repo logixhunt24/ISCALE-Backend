@@ -8,6 +8,7 @@ const {
   enrollEvent,
   getMyEnrolledEvents,
 } = require("../controllers/enrolledEventController");
+const { getEventEnrollmentStatus } = require("../controllers/publicEventController");
 
 // ENROLL EVENT
 router.post(
@@ -21,6 +22,13 @@ router.get(
   "/my-enrolled-events",
   authMiddleware,
   getMyEnrolledEvents
+);
+
+// ENROLLMENT STATUS (+ meeting link for enrolled students)
+router.get(
+  "/status/:event_id",
+  authMiddleware,
+  getEventEnrollmentStatus
 );
 
 module.exports = router;

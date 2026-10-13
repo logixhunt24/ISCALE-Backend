@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { isWebClient, startWebSession } = require("./webSession");
 
 // ===============================
 // GENERATE JWT TOKEN
@@ -23,6 +24,26 @@ const generateTokenUser = (user) => {
       email: user.c_email,
       contact: user.c_contact,
       role: 2
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "60d" }
+  );
+};
+
+// Use this at login. Website logins (X-Client-Platform: web, or forceWeb for the
+// browser-redirect Google flow) become the student's single active session; any
+// other client (the mobile apps) gets a plain token exactly as before.
+const issueUserToken = async (user, req, { forceWeb = false } = {}) => {
+  if (!forceWeb && !isWebClient(req)) return generateTokenUser(user);
+
+  const sid = await startWebSession(user._id, req);
+  return jwt.sign(
+    {
+      id: user._id,
+      email: user.c_email,
+      contact: user.c_contact,
+      role: 2,
+      sid,
     },
     process.env.JWT_SECRET,
     { expiresIn: "60d" }
@@ -72,6 +93,7 @@ const generateEmailChangeToken = (user) => {
 module.exports = {
   generateTokenAdmin,
   generateTokenUser,
+  issueUserToken,
   generateResetToken,
   generateRegisterToken,
   generateEmailChangeToken,

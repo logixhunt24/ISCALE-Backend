@@ -592,6 +592,12 @@ const deleteBatch = async (req, res) => {
       await deleteFile(batch.m_batch_image);
     }
 
+    // unassign students so no enrollment points at a deleted batch
+    await CourseEnrollment.updateMany(
+      { batch_id: id },
+      { batch_id: null, batch_name: null },
+    );
+
     // delete batch
     await MasterBatch.findByIdAndDelete(id);
 
@@ -731,6 +737,178 @@ const appGetRunningBatches = async (req, res) => {
 
 
 
+// =================================
+// BATCH STUDENTS (admin)
+// =================================
+const studentShape = (e) => ({
+  enrollment_id: e._id,
+  user_id: e.user_id?._id || null,
+  name:
+    [e.user_id?.c_first_name, e.user_id?.c_last_name].filter(Boolean).join(" ") ||
+    e.user_id?.c_display_name ||
+    "",
+  email: e.user_id?.c_email || "",
+  contact: e.user_id?.c_contact || "",
+  gender: e.user_id?.c_gender || "",
+  current_batch_id: e.batch_id?._id || e.batch_id || null,
+  current_batch_name: e.batch_id?.batch_name || "",
+});
+
+// enrollments that count as "has access to the course"
+const activeEnrollmentFilter = {
+  status: 1,
+  $or: [{ course_type: 1 }, { payment_status: 1 }],
+};
+
+const getBatchStudents = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid batch id" });
+    }
+
+    const batch = await MasterBatch.findById(id)
+      .populate("batch_course", "m_course_title")
+      .lean();
+
+    if (!batch) {
+      return res.status(404).json({ status: false, message: "Batch not found" });
+    }
+
+    const userSelect = "c_first_name c_last_name c_display_name c_email c_contact c_gender";
+
+    const assigned = await CourseEnrollment.find({ batch_id: id })
+      .populate("user_id", userSelect)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    let eligible = [];
+    if (batch.batch_course) {
+      eligible = await CourseEnrollment.find({
+        ...activeEnrollmentFilter,
+        course_id: batch.batch_course._id,
+        batch_id: { $ne: id },
+      })
+        .populate("user_id", userSelect)
+        .populate("batch_id", "batch_name")
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    return res.status(200).json({
+      status: true,
+      batch: {
+        _id: batch._id,
+        batch_name: batch.batch_name,
+        batch_instructor: batch.batch_instructor,
+        course_title: batch.batch_course?.m_course_title || "",
+        batch_date: batch.batch_date,
+        start_time: batch.start_time,
+        end_time: batch.end_time,
+        strength: batch.strength,
+        subject: batch.subject,
+      },
+      assigned: assigned.map(studentShape),
+      eligible: eligible.filter((e) => e.user_id).map(studentShape),
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+const assignStudentToBatch = async (req, res) => {
+  try {
+    const { batch_id, enrollment_id } = req.body;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(batch_id) ||
+      !mongoose.Types.ObjectId.isValid(enrollment_id)
+    ) {
+      return res
+        .status(400)
+        .json({ status: false, message: "batch_id and enrollment_id are required" });
+    }
+
+    const batch = await MasterBatch.findById(batch_id);
+    if (!batch) {
+      return res.status(404).json({ status: false, message: "Batch not found" });
+    }
+
+    const enrollment = await CourseEnrollment.findOne({
+      _id: enrollment_id,
+      ...activeEnrollmentFilter,
+    });
+    if (!enrollment) {
+      return res
+        .status(404)
+        .json({ status: false, message: "Active enrollment not found" });
+    }
+
+    if (
+      !batch.batch_course ||
+      String(enrollment.course_id) !== String(batch.batch_course)
+    ) {
+      return res.status(400).json({
+        status: false,
+        message: "Student is not enrolled in this batch's course",
+      });
+    }
+
+    if (String(enrollment.batch_id) === String(batch._id)) {
+      return res
+        .status(200)
+        .json({ status: true, message: "Student is already in this batch" });
+    }
+
+    if (batch.strength > 0) {
+      const count = await CourseEnrollment.countDocuments({ batch_id: batch._id });
+      if (count >= batch.strength) {
+        return res
+          .status(400)
+          .json({ status: false, message: "Batch is full" });
+      }
+    }
+
+    enrollment.batch_id = batch._id;
+    enrollment.batch_name = batch.batch_name;
+    await enrollment.save();
+
+    return res
+      .status(200)
+      .json({ status: true, message: "Student added to batch" });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+const removeStudentFromBatch = async (req, res) => {
+  try {
+    const { enrollment_id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(enrollment_id)) {
+      return res.status(400).json({ status: false, message: "Invalid enrollment id" });
+    }
+
+    const enrollment = await CourseEnrollment.findByIdAndUpdate(
+      enrollment_id,
+      { batch_id: null, batch_name: null },
+      { new: true },
+    );
+
+    if (!enrollment) {
+      return res.status(404).json({ status: false, message: "Enrollment not found" });
+    }
+
+    return res
+      .status(200)
+      .json({ status: true, message: "Student removed from batch" });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+
 module.exports = {
   addBatch,
   updateBatch,
@@ -738,5 +916,8 @@ module.exports = {
   getSingleBatch,
   deleteBatch,
   getBatchesDropdown,
-  appGetRunningBatches
+  appGetRunningBatches,
+  getBatchStudents,
+  assignStudentToBatch,
+  removeStudentFromBatch,
 };

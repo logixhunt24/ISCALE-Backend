@@ -17,6 +17,7 @@ const LiveClass = require("../models/live_class");
 const Batch = require("../models/batch");
 const Video = require("../models/video");
 const QuizResult = require("../models/quiz_result");
+const { isInvoiceable, signedInvoiceUrl } = require("./invoiceController");
 const CourseReview = require("../models/course_review");
 const Package = require("../models/test_package");
 const Quiz = require("../models/quizs");
@@ -679,11 +680,12 @@ const appGetInvoice = async (req, res) => {
       return res.status(404).json({ status: false, message: "Enrollment not found" });
     }
 
+    // the PDF is generated on demand; hand the app a signed link it can open directly
     return res.json({
       status: true,
       data: {
         invoice_no: enrollment.invoice_no || null,
-        invoice_pdf: enrollment.invoice_pdf || null,
+        invoice_pdf: isInvoiceable(enrollment) ? signedInvoiceUrl(enrollment._id) : null,
       },
     });
   } catch (err) {

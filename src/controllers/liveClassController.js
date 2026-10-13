@@ -15,6 +15,16 @@ const isValidValue = (value) => {
   );
 };
 
+const isValidMeetingLink = (value) => {
+  if (!isValidValue(value)) return false;
+  try {
+    const u = new URL(String(value).trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 // =================================
 // ADD LIVE CLASS
 // =================================
@@ -37,6 +47,34 @@ const addLiveClass = async (req, res) => {
       return res.status(400).json({
         status: false,
         message: "Title is required",
+      });
+    }
+
+    if (!isValidValue(class_date) || Number.isNaN(new Date(class_date).getTime())) {
+      return res.status(400).json({
+        status: false,
+        message: "A valid class date is required",
+      });
+    }
+
+    if (!isValidValue(batch_id)) {
+      return res.status(400).json({
+        status: false,
+        message: "Batch is required",
+      });
+    }
+
+    if (!isValidValue(teacher_id)) {
+      return res.status(400).json({
+        status: false,
+        message: "Teacher is required",
+      });
+    }
+
+    if (!isValidMeetingLink(meeting_link)) {
+      return res.status(400).json({
+        status: false,
+        message: "A valid meeting link (http/https) is required",
       });
     }
 
@@ -167,15 +205,23 @@ const updateLiveClass = async (req, res) => {
     // ==============================
     // START TIME
     // ==============================
-    if (isValidValue(req.body.start_time)) {
-      updateData.start_time = req.body.start_time;
+    if (req.body.start_time !== undefined) {
+      updateData.start_time = isValidValue(req.body.start_time)
+        ? req.body.start_time
+        : "";
     }
 
     // ==============================
     // MEETING LINK
     // ==============================
     if (isValidValue(req.body.meeting_link)) {
-      updateData.meeting_link = req.body.meeting_link;
+      if (!isValidMeetingLink(req.body.meeting_link)) {
+        return res.status(400).json({
+          status: false,
+          message: "A valid meeting link (http/https) is required",
+        });
+      }
+      updateData.meeting_link = String(req.body.meeting_link).trim();
     }
 
     // ==============================

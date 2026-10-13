@@ -736,6 +736,13 @@ const offerUpload = upload.fields([
   },
 ]);
 
+const competitionUpload = upload.fields([
+  {
+    name: "m_competition_image",
+    maxCount: 1,
+  },
+]);
+
 const partnerUpload = upload.fields([
   {
     name: "partner_image",
@@ -826,6 +833,7 @@ module.exports = {
   teamUpload,
   candidateUpload,
   offerUpload,
+  competitionUpload,
   partnerUpload,
   userReviewUpload,
   bannerUpload,

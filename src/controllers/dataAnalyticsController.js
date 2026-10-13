@@ -20,7 +20,21 @@ const getLeadFormBySlug = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      data: form,
+      data: {
+        m_lg_title: form.m_lg_title,
+        m_lg_slug: form.m_lg_slug,
+        m_lg_desc: form.m_lg_desc,
+        m_lg_redirect_link: form.m_lg_redirect_link,
+        m_lg_college: form.m_lg_college,
+        m_lg_education: form.m_lg_education,
+        m_lg_field_of_study: form.m_lg_field_of_study,
+        m_lg_branch: form.m_lg_branch,
+        m_lg_passing_year: form.m_lg_passing_year,
+        m_lg_state: form.m_lg_state,
+        m_lg_gender: form.m_lg_gender,
+        m_lg_laptop_desktop: form.m_lg_laptop_desktop,
+        m_lg_working_professional: form.m_lg_working_professional,
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -71,6 +85,51 @@ const submitLeadForm = async (req, res) => {
       return res.status(400).json({
         status: false,
         message: "Name, Mobile, Whatsapp and Email are required",
+      });
+    }
+
+    // ==========================
+    // FORMAT VALIDATION
+    // ==========================
+
+    const mobile = String(data_mobile).trim();
+    const whatsapp = String(data_whatsapp).trim();
+    const email = String(data_email).trim().toLowerCase();
+
+    if (!/^\d{10}$/.test(mobile) || !/^\d{10}$/.test(whatsapp)) {
+      return res.status(400).json({
+        status: false,
+        message: "Mobile and WhatsApp numbers must be exactly 10 digits",
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        status: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    if (data_state && !mongoose.Types.ObjectId.isValid(data_state)) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid state",
+      });
+    }
+
+    // ==========================
+    // DUPLICATE CHECK (per form)
+    // ==========================
+
+    const alreadyRegistered = await DataAnalytics.exists({
+      data_lead_id: lead._id,
+      $or: [{ data_mobile: mobile }, { data_email: email }],
+    });
+
+    if (alreadyRegistered) {
+      return res.status(409).json({
+        status: false,
+        message: "Already Enrolled! This mobile number or email has already been registered.",
       });
     }
 
@@ -145,16 +204,16 @@ const submitLeadForm = async (req, res) => {
     // SAVE DATA
     // ==========================
 
-    const savedData = await DataAnalytics.create({
+    await DataAnalytics.create({
       data_lead_id: lead._id,
 
-      data_name,
+      data_name: String(data_name).trim(),
 
-      data_mobile,
+      data_mobile: mobile,
 
-      data_whatsapp,
+      data_whatsapp: whatsapp,
 
-      data_email,
+      data_email: email,
 
       data_gender: data_gender || null,
 
@@ -182,8 +241,6 @@ const submitLeadForm = async (req, res) => {
       message: "Form submitted successfully",
 
       redirect_url: lead.m_lg_redirect_link,
-
-      data: savedData,
     });
   } catch (error) {
     return res.status(500).json({

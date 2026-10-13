@@ -3,7 +3,7 @@ const Enrollment = require("../models/course_enrollment");
 const { toPublicUrl } = require("../utils/imageUrl");
 // const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { generateTokenUser } = require("../utils/token");
+const { generateTokenUser, issueUserToken } = require("../utils/token");
 // const Candidate = require("../models/candidate");
 const sendSms = require("../utils/sendSms");
 const sendEmail = require("../utils/sendEmail");
@@ -184,7 +184,7 @@ exports.login = async (req, res) => {
     }
 
     // Generate token for user
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     res.status(200).send({
       status: true,
@@ -255,7 +255,7 @@ exports.loginWithPassword = async (req, res) => {
       });
     }
 
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     return res.status(200).json({
       status: true,
@@ -391,7 +391,7 @@ exports.loginVerifyOtp = async (req, res) => {
     user.c_otp_expiry = null;
     await user.save();
 
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     // Return user as array with Android-compatible field names
     return res.status(200).json({
@@ -627,7 +627,7 @@ exports.resendOtp = async (req, res) => {
 
 //     // Existing Registered User
 //     if (user.c_first_name && user.c_email && user.c_password) {
-//       const token = generateTokenUser(user);
+//       const token = await issueUserToken(user, req);
 
 //       return res.status(200).json({
 //         status: true,
@@ -770,7 +770,7 @@ exports.register = async (req, res) => {
     await sendPasswordEmail(user.c_email, password);
 
     // Direct Login Token
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     return res.status(201).json({
       status: true,
@@ -840,7 +840,7 @@ exports.createPassword = async (req, res) => {
 
     await sendPasswordEmail(user.c_email, password);
 
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     return res.status(200).json({
       status: true,
@@ -1165,7 +1165,7 @@ exports.appResetPassword = async (req, res) => {
     user.c_user_status = 1;
     await user.save();
 
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req);
 
     return res.status(200).json({
       status: true,

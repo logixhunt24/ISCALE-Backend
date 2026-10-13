@@ -1,6 +1,6 @@
 const { OAuth2Client } = require("google-auth-library");
 const Candidate = require("../models/candidates");
-const { generateTokenUser } = require("../utils/token");
+const { issueUserToken } = require("../utils/token");
 const generateCandidateIdno = require("../utils/generateCandidateIdno");
 
 const oauth2Client = new OAuth2Client(
@@ -104,7 +104,7 @@ exports.googleCallback = async (req, res) => {
       });
     }
 
-    const token = generateTokenUser(user);
+    const token = await issueUserToken(user, req, { forceWeb: true });
 
     return res.redirect(
       `${FRONTEND_URL}/auth/callback?status=success&token=${encodeURIComponent(token)}`

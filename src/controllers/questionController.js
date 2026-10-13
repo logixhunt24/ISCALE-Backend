@@ -66,6 +66,70 @@ const addQuestion = async (req, res) => {
 };
 
 // ===============================
+// BULK ADD QUESTIONS (CSV import)
+// ===============================
+const bulkAddQuestions = async (req, res) => {
+  try {
+    const { m_ques_quiz, questions } = req.body;
+
+    if (!m_ques_quiz || !mongoose.Types.ObjectId.isValid(m_ques_quiz)) {
+      return res.status(400).json({ status: false, message: "A valid Quiz ID (m_ques_quiz) is required" });
+    }
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ status: false, message: "No questions to import" });
+    }
+    if (questions.length > 500) {
+      return res.status(400).json({ status: false, message: "Import at most 500 questions at a time" });
+    }
+
+    const clean = (v) => (v === undefined || v === null ? "" : String(v).trim());
+    const errors = [];
+    const docs = [];
+
+    questions.forEach((row, i) => {
+      const line = i + 1;
+      const title = clean(row.m_ques_title_en);
+      const ops = [1, 2, 3, 4].map((n) => clean(row[`m_ques_op${n}_en`]));
+      const ans = clean(row.m_ques_ans).toUpperCase();
+
+      if (!title) return errors.push({ row: line, message: "Question text is missing" });
+      if (ops.filter(Boolean).length < 2) return errors.push({ row: line, message: "At least two options are required" });
+      if (!["A", "B", "C", "D"].includes(ans)) return errors.push({ row: line, message: "Correct answer must be A, B, C or D" });
+      if (!ops["ABCD".indexOf(ans)]) return errors.push({ row: line, message: `Option ${ans} is empty but marked correct` });
+
+      docs.push({
+        m_ques_quiz,
+        m_ques_title_en: title,
+        m_ques_op1_en: ops[0] || null,
+        m_ques_op2_en: ops[1] || null,
+        m_ques_op3_en: ops[2] || null,
+        m_ques_op4_en: ops[3] || null,
+        m_ques_ans: ans,
+        m_ques_solutions: clean(row.m_ques_solutions) || null,
+      });
+    });
+
+    // all-or-nothing: a partial import is hard to untangle
+    if (errors.length) {
+      return res.status(400).json({
+        status: false,
+        message: `${errors.length} row(s) have problems. Nothing was imported.`,
+        errors,
+      });
+    }
+
+    const last = await Question.findOne().sort({ m_ques_id: -1 }).select("m_ques_id");
+    let nextId = last && last.m_ques_id ? last.m_ques_id + 1 : 1;
+    docs.forEach((d) => { d.m_ques_id = nextId++; });
+
+    await Question.insertMany(docs);
+    return res.status(201).json({ status: true, message: `${docs.length} question(s) imported`, imported: docs.length });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+// ===============================
 // GET QUESTIONS BY QUIZ ID
 // ===============================
 const getQuestionsByQuiz = async (req, res) => {
@@ -77,10 +141,11 @@ const getQuestionsByQuiz = async (req, res) => {
 
     // Find questions and select only the required fields
     const questions = await Question.find({ m_ques_quiz: quizId })
-      .select('m_ques_title_en m_ques_op1_en m_ques_op2_en m_ques_op3_en m_ques_op4_en m_ques_ans');
+      .select('m_ques_title_en m_ques_op1_en m_ques_op2_en m_ques_op3_en m_ques_op4_en m_ques_ans m_ques_solutions')
+      .sort({ _id: 1 });
 
     if (questions.length === 0) {
-        return res.status(404).json({ status: true, message: "No questions found for this quiz", data: [] });
+        return res.json({ status: true, message: "No questions found for this quiz", data: [] });
     }
 
     res.json({ status: true, data: questions });
@@ -165,4 +230,5 @@ module.exports = {
   getQuestionsByQuiz,
   updateQuestion,
   deleteQuestion,
+  bulkAddQuestions,
 };

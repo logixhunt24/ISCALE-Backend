@@ -26,6 +26,12 @@ const generateCertificatePDF = async (
 ) => {
   try {
     const cat = String(categoryName || "bootcamp").toLowerCase();
+    // One decision drives the template, the layout and the drawing code. Matching
+    // "analy" covers both "Data Analyst" and "Data Analytics" category names; they
+    // used to be checked with different strings, so "Data Analytics" got the
+    // bootcamp layout but the data-course drawing path and crashed.
+    const isDS = /data\s*scien/.test(cat);
+    const isDA = !isDS && /data\s*analy/.test(cat);
 
     // create date
     const now = new Date();
@@ -38,7 +44,7 @@ const generateCertificatePDF = async (
     let config = {};
 
     // --- CONFIGURATION ---
-    if (cat.includes("data science")) {
+    if (isDS) {
       config = {
         nameSize: 120,
         nameY: 580,
@@ -58,7 +64,7 @@ const generateCertificatePDF = async (
 
         certNoColor: rgb(0.188, 0.188, 0.188),
       };
-    } else if (cat.includes("data analyst")) {
+    } else if (isDA) {
       config = {
         nameSize: 110,
         nameY: 840,
@@ -139,9 +145,9 @@ const generateCertificatePDF = async (
     }
 
     const assetsDir = path.join(__dirname, "../../assets");
-    const templateName = cat.includes("data science")
+    const templateName = isDS
       ? "ds_bg.jpeg"
-      : cat.includes("data analyst")
+      : isDA
         ? "da_bg.jpeg"
         : "bootcamp_bg.jpeg";
 
@@ -185,7 +191,7 @@ const generateCertificatePDF = async (
     });
 
     // 2. Course & Conducted Text
-    if (cat.includes("data")) {
+    if ((isDS || isDA)) {
       page.drawText(courseTitle, {
         x: config.courseX,
         y: config.courseY,
@@ -230,7 +236,7 @@ const generateCertificatePDF = async (
     }
 
     // 3. Dynamic Date Logic
-    if (cat.includes("data")) {
+    if ((isDS || isDA)) {
       const w1 = secFont.widthOfTextAtSize(config.datePart1, config.courseSize);
       page.drawText(config.datePart1, {
         x: config.dateX,

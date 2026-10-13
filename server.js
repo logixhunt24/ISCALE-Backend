@@ -16,7 +16,14 @@ const connectDB = require("./src/config/db");
 connectDB();
 
 //  middlewares
-app.use(express.json({ limit: "100mb" }));
+app.use(
+  express.json({
+    limit: "100mb",
+    verify: (req, res, buf) => {
+      if (req.originalUrl.split("?")[0].endsWith("/checkout/webhook")) req.rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ limit: "100mb",extended: true }));
 app.use(cors());
 
@@ -63,6 +70,11 @@ const mobileAppRoutes = require("./src/routes/mobileAppRoutes");
 app.use("/app2", mobileAppRoutes);
 
 
+
+// Sitemap for search engines (robots.txt on the website points here)
+const { getSitemap } = require("./src/controllers/sitemapController");
+app.get("/sitemap.xml", getSitemap);
+app.get("/api/sitemap.xml", getSitemap);
 
 //  default route
 app.get("/", (req, res) => {

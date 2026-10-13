@@ -2,6 +2,8 @@ const TestPackageEnrollment = require("../models/test_package_enrollment");
 
 const TestPackage = require("../models/test_package");
 
+const { listPackageTests } = require("./quizAttemptController");
+
 // ======================================================
 // ENROLL TEST PACKAGE
 // ======================================================
@@ -315,23 +317,27 @@ const getSinglePurchasedPackage = async (
       });
     }
 
+    const out = data.toObject();
+    const pkg = out.test_package_id;
+
+    out.title = pkg?.m_package_title || "";
+    out.description = pkg?.m_package_description || pkg?.m_package_intro || "";
+    out.tests =
+      out.payment_status === 1 && pkg?._id
+        ? await listPackageTests(userId, pkg._id)
+        : [];
+
     return res.status(200).json({
       status: true,
-
-      data,
+      data: out,
     });
   } catch (error) {
     return res.status(500).json({
       status: false,
-
       message: error.message,
     });
   }
 };
-
-
-
-
 
 module.exports = {
   enrollTestPackage,

@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const { isCurrentWebSession } = require("../utils/webSession");
 
-exports.authMiddleware = (req, res, next) => {
+exports.authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -25,7 +26,19 @@ exports.authMiddleware = (req, res, next) => {
     // 3. Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 4. Attach user
+    // 4. Website tokens carry a session id; only the newest login is valid
+    if (decoded.sid && decoded.role === 2) {
+      const current = await isCurrentWebSession(decoded.id, decoded.sid);
+      if (!current) {
+        return res.status(401).send({
+          status: false,
+          code: "SESSION_REPLACED",
+          message: "You were signed out because your account was signed in on another device.",
+        });
+      }
+    }
+
+    // 5. Attach user
     req.user = decoded;
 
     next();

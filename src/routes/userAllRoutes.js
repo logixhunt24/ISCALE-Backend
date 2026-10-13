@@ -47,6 +47,9 @@ const locationSettingRoutes = require("./locationSettingRoutes");
 const brandVideoRoutes = require("./brandVideoRoutes");
 const whoWeAreRoutes = require("./whoWeAreRoutes");
 const phoneImageRoutes = require("./phoneImageRoutes");
+const liveClassUserRoutes = require("./liveClassUserRoutes");
+const quizAttemptRoutes = require("./quizAttemptRoutes");
+const invoiceRoutes = require("./invoiceRoutes");
 
 
 
@@ -97,5 +100,8 @@ router.use("/location", locationSettingRoutes);
 router.use("/brand-videos", brandVideoRoutes);
 router.use("/who-we-are", whoWeAreRoutes);
 router.use("/phone-images", phoneImageRoutes);
+router.use("/live-classes", liveClassUserRoutes);
+router.use("/test-quiz", quizAttemptRoutes);
+router.use("/invoice", invoiceRoutes);
 
 module.exports = router; 

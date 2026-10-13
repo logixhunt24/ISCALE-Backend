@@ -295,6 +295,79 @@ const createOrder = async (req, res) => {
   }
 };
 
+// Turns a paid order into an enrolment. Safe to call from several places at once
+// (the browser's /verify call AND Razorpay's webhook): whoever flips the order to
+// "paid" first creates the enrolment, everyone else sees it is already done.
+const fulfillOrder = async (orderId, razorpayPaymentId) => {
+  const claimed = await CourseOrder.findOneAndUpdate(
+    { _id: orderId, status: { $ne: "paid" } },
+    { status: "paid", razorpay_payment_id: razorpayPaymentId },
+    { new: true },
+  );
+
+  if (!claimed) {
+    // already fulfilled by the other path
+    const order = await CourseOrder.findById(orderId);
+    return { enrolled: true, order, created: false };
+  }
+
+  try {
+    const existing = await Enrollment.findOne({
+      user_id: claimed.user_id,
+      course_id: claimed.course_id,
+    });
+    if (existing) return { enrolled: true, order: claimed, created: false };
+
+    const course = await Course.findById(claimed.course_id);
+    if (!course) throw new Error("Course not found");
+
+    let expiry_date = null;
+    let access_type = "lifetime";
+    if (course.m_course_access_type === "limited") {
+      access_type = "limited";
+      expiry_date = new Date();
+      expiry_date.setDate(expiry_date.getDate() + (course.m_course_access_days || 0));
+    }
+
+    await Enrollment.create({
+      user_id: claimed.user_id,
+      course_id: claimed.course_id,
+      course_type: 2,
+      payment_status: 1,
+      amount: claimed.payable_amount,
+      original_amount: claimed.original_amount,
+      offer_amount: claimed.offer_amount,
+      discount_amount: claimed.original_amount - claimed.offer_amount + claimed.coupon_discount,
+      payable_amount: claimed.payable_amount,
+      coupon_id: claimed.coupon_id,
+      coupon_code: claimed.coupon_code,
+      payment_mode: "razorpay",
+      transaction_id: razorpayPaymentId,
+      access_type,
+      expiry_date,
+      progress: 0,
+      status: 1,
+      app_status: 1,
+      android_status: 1,
+      ios_status: 1,
+      test_series_status: 0,
+      live_class_status: 0,
+      certificate_status: 0,
+      register_from: 1,
+    });
+
+    if (claimed.coupon_id) {
+      await Coupon.updateOne({ _id: claimed.coupon_id }, { $inc: { used_coupon: 1 } });
+    }
+
+    return { enrolled: true, order: claimed, created: true };
+  } catch (err) {
+    // let a retry (or the webhook) try again instead of leaving a "paid" order with no enrolment
+    await CourseOrder.updateOne({ _id: orderId }, { status: "created" });
+    throw err;
+  }
+};
+
 // POST /api/checkout/verify  { razorpay_order_id, razorpay_payment_id, razorpay_signature }
 const verifyPayment = async (req, res) => {
   try {
@@ -324,73 +397,15 @@ const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
-      order.status = "failed";
-      await order.save();
+      // do not downgrade an order that has already been paid (e.g. confirmed by the webhook)
+      if (order.status === "created") {
+        order.status = "failed";
+        await order.save();
+      }
       return res.status(400).json({ status: false, message: "Payment verification failed" });
     }
 
-    // Idempotent: a repeated verify (or a retry after a network blip) must
-    // not create a second enrollment or double-count the coupon.
-    const existing = await Enrollment.findOne({
-      user_id: req.user.id,
-      course_id: order.course_id,
-    });
-    if (existing) {
-      if (order.status !== "paid") {
-        order.status = "paid";
-        order.razorpay_payment_id = razorpay_payment_id;
-        await order.save();
-      }
-      return res.json({ status: true, message: "Payment verified - you are enrolled", data: { courseId: order.course_id } });
-    }
-
-    const course = await Course.findById(order.course_id);
-    if (!course) {
-      return res.status(404).json({ status: false, message: "Course not found" });
-    }
-
-    let expiry_date = null;
-    let access_type = "lifetime";
-    if (course.m_course_access_type === "limited") {
-      access_type = "limited";
-      expiry_date = new Date();
-      expiry_date.setDate(expiry_date.getDate() + (course.m_course_access_days || 0));
-    }
-
-    await Enrollment.create({
-      user_id: req.user.id,
-      course_id: order.course_id,
-      course_type: 2,
-      payment_status: 1,
-      amount: order.payable_amount,
-      original_amount: order.original_amount,
-      offer_amount: order.offer_amount,
-      discount_amount: order.original_amount - order.offer_amount + order.coupon_discount,
-      payable_amount: order.payable_amount,
-      coupon_id: order.coupon_id,
-      coupon_code: order.coupon_code,
-      payment_mode: "razorpay",
-      transaction_id: razorpay_payment_id,
-      access_type,
-      expiry_date,
-      progress: 0,
-      status: 1,
-      app_status: 1,
-      android_status: 1,
-      ios_status: 1,
-      test_series_status: 0,
-      live_class_status: 0,
-      certificate_status: 0,
-      register_from: 1,
-    });
-
-    order.status = "paid";
-    order.razorpay_payment_id = razorpay_payment_id;
-    await order.save();
-
-    if (order.coupon_id) {
-      await Coupon.updateOne({ _id: order.coupon_id }, { $inc: { used_coupon: 1 } });
-    }
+    await fulfillOrder(order._id, razorpay_payment_id);
 
     return res.json({
       status: true,
@@ -403,4 +418,75 @@ const verifyPayment = async (req, res) => {
   }
 };
 
-module.exports = { getSummary, createOrder, verifyPayment };
+// GET /api/checkout/order-status/:razorpayOrderId
+// The checkout page polls this after a payment when its own confirmation call did not
+// come back (closed tab, flaky network); the webhook may already have enrolled the student.
+const getOrderStatus = async (req, res) => {
+  try {
+    const order = await CourseOrder.findOne({
+      razorpay_order_id: req.params.razorpayOrderId,
+      user_id: req.user.id,
+    }).select("status course_id");
+
+    if (!order) return res.status(404).json({ status: false, message: "Order not found" });
+
+    return res.json({ status: true, data: { orderStatus: order.status, courseId: order.course_id } });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+// POST /api/checkout/webhook   (called by Razorpay, no login)
+// Configure in the Razorpay dashboard: URL = <API>/api/checkout/webhook, events =
+// payment.captured, order.paid, payment.failed, secret = RAZORPAY_WEBHOOK_SECRET.
+const razorpayWebhook = async (req, res) => {
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("Razorpay webhook hit but RAZORPAY_WEBHOOK_SECRET is not set");
+      return res.status(503).json({ status: false, message: "Webhook not configured" });
+    }
+
+    const signature = req.headers["x-razorpay-signature"];
+    const raw = req.rawBody;
+    if (!signature || !raw) return res.status(400).json({ status: false, message: "Missing signature" });
+
+    const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+    const a = Buffer.from(String(signature));
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(400).json({ status: false, message: "Invalid signature" });
+    }
+
+    const event = req.body?.event;
+    const payment = req.body?.payload?.payment?.entity;
+    const orderEntity = req.body?.payload?.order?.entity;
+    const razorpayOrderId = payment?.order_id || orderEntity?.id;
+
+    if (!razorpayOrderId) return res.json({ status: true, message: "Ignored" });
+
+    const order = await CourseOrder.findOne({ razorpay_order_id: razorpayOrderId });
+    if (!order) return res.json({ status: true, message: "Unknown order ignored" });
+
+    if (event === "payment.captured" || event === "order.paid") {
+      // never trust a payment that does not match what we asked for (amount is in paise)
+      const paidPaise = payment?.amount ?? orderEntity?.amount_paid;
+      if (paidPaise !== undefined && Number(paidPaise) !== Math.round(Number(order.payable_amount) * 100)) {
+        console.error(`Razorpay webhook amount mismatch for order ${razorpayOrderId}: got ${paidPaise}, expected ${order.payable_amount * 100}`);
+        return res.json({ status: true, message: "Amount mismatch ignored" });
+      }
+      const paymentId = payment?.id || order.razorpay_payment_id;
+      await fulfillOrder(order._id, paymentId);
+    } else if (event === "payment.failed" && order.status === "created") {
+      await CourseOrder.updateOne({ _id: order._id, status: "created" }, { status: "failed" });
+    }
+
+    return res.json({ status: true });
+  } catch (err) {
+    console.error("razorpay webhook error:", err);
+    // a 5xx makes Razorpay retry the delivery, which is what we want for transient failures
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+module.exports = { getSummary, createOrder, verifyPayment, getOrderStatus, razorpayWebhook };

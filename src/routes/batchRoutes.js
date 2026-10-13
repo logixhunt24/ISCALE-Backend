@@ -9,7 +9,10 @@ const {
   getSingleBatch,
   deleteBatch,
   getBatchesDropdown,
-  appGetRunningBatches
+  appGetRunningBatches,
+  getBatchStudents,
+  assignStudentToBatch,
+  removeStudentFromBatch,
 } = require("../controllers/batchController");
 
 const {
@@ -46,6 +49,11 @@ router.get("/get/:id", authMiddleware, adminMiddleware, getSingleBatch);
 router.delete("/delete/:id", authMiddleware, adminMiddleware, deleteBatch);
 
 router.get("/dropdown", authMiddleware, adminMiddleware, getBatchesDropdown);
+
+// Batch students (admin)
+router.get("/students/:id", authMiddleware, adminMiddleware, getBatchStudents);
+router.post("/assign-student", authMiddleware, adminMiddleware, assignStudentToBatch);
+router.delete("/remove-student/:enrollment_id", authMiddleware, adminMiddleware, removeStudentFromBatch);
 
 
 // Mobile Apis=============================================================================================================================

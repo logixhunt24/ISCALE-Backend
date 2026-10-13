@@ -90,7 +90,7 @@ const getInstructionsByQuizId = async (req, res) => {
     const instructions = await Instruction.find({ m_instruction_quiz: quizId });
     
     if (!instructions || instructions.length === 0) {
-        return res.status(404).json({ status: false, message: "No instructions found for this quiz" });
+        return res.json({ status: true, message: "No instructions found for this quiz", data: [] });
     }
     
     res.json({ status: true, data: instructions });

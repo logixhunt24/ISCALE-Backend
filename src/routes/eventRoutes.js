@@ -14,6 +14,7 @@ const {
   appGetAllEvents
 } = require("../controllers/eventController");
 const { userMiddleware } = require("../middlewares/userMiddleware");
+const { getPublicEvents, getPublicEventBySlug } = require("../controllers/publicEventController");
 
 router.post("/add-event",authMiddleware,adminMiddleware, eventUpload, addEvent);
 
@@ -29,7 +30,8 @@ router.get("/get-events-dropdown",authMiddleware,adminMiddleware, getAllEventsDr
 
 
 
-router.get("/public-get-events", getAllEvents);
+router.get("/public-get-events", getPublicEvents);
+router.get("/public-event/:slug", getPublicEventBySlug);
 
 
 // Mobile Apis=============================================================================================================================
