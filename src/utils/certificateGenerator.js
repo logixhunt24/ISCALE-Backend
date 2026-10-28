@@ -23,6 +23,7 @@ const generateCertificatePDF = async (
   courseTitle,
   categoryName,
   certNo,
+  issuedAt = null,
 ) => {
   try {
     const cat = String(categoryName || "bootcamp").toLowerCase();
@@ -33,8 +34,8 @@ const generateCertificatePDF = async (
     const isDS = /data\s*scien/.test(cat);
     const isDA = !isDS && /data\s*analy/.test(cat);
 
-    // create date
-    const now = new Date();
+    // the printed date is the approval date, so re-downloading later gives the same certificate
+    const now = issuedAt ? new Date(issuedAt) : new Date();
     const monthYear = now.toLocaleString("default", {
       month: "long",
       year: "numeric",

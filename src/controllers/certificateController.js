@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const Enrollment = require("../models/course_enrollment");
+const Course = require("../models/course");
 
 const Lecture = require("../models/lecture");
 
@@ -15,11 +17,10 @@ const {
 //   uploadBufferToCloudinary
 // } = require("../services/storageService");
 
-const {
-  deleteFile,
-  uploadBufferWithMeta,
-  deleteCertificateFile
-} = require("../services/storageService");
+const { deleteCertificateFile } = require("../services/storageService");
+const Candidate = require("../models/candidates");
+const { verify } = require("../utils/signedLink");
+const { signedCertificateUrl, certificateUrlFor } = require("../utils/certificateLinks");
 
 const fs = require("fs");
 
@@ -30,6 +31,9 @@ const os = require("os");
 // =======================================================
 // CALCULATE COURSE PROGRESS
 // =======================================================
+
+// A certificate can be requested once this much of the course is completed.
+const MIN_PROGRESS = 90;
 
 const calculateProgress = async (userId, courseId) => {
   const totalLectures = await Lecture.countDocuments({
@@ -79,13 +83,13 @@ const getCertificateStatus = async (req, res) => {
 
       course_progress: progress,
 
-      certificate_eligible: progress >= 90,
+      certificate_eligible: progress >= MIN_PROGRESS,
 
       certificate_status: enrollment.certificate_status,
 
       certificate_no: enrollment.certificate_no,
 
-      certificate_pdf: enrollment.certificate_pdf,
+      certificate_pdf: certificateUrlFor(enrollment),
 
       declined_reason: enrollment.certificate_declined_reason,
     });
@@ -119,18 +123,21 @@ const requestCertificate = async (req, res) => {
       });
     }
 
+    if (enrollment.certificate_status === 2) {
+      return res.status(400).json({
+        status: false,
+        message: "Your certificate is already issued",
+      });
+    }
+
     const progress = await calculateProgress(userId, course_id);
 
-    // minimum 90%
-    // if (progress < 90) {
-
-    //   return res.status(400).json({
-    //     status: false,
-    //     message:
-    //       "Minimum 90% course completion required",
-    //   });
-
-    // }
+    if (progress < MIN_PROGRESS) {
+      return res.status(400).json({
+        status: false,
+        message: `Minimum ${MIN_PROGRESS}% course completion required (you are at ${progress}%)`,
+      });
+    }
 
     // already pending
     if (enrollment.certificate_status === 1) {
@@ -291,7 +298,7 @@ const getCertificateRequests = async (req, res) => {
 
           certificate_no: item.certificate_no || null,
 
-          certificate_pdf: item.certificate_pdf || null,
+          certificate_pdf: certificateUrlFor(item),
 
           declined_reason: item.certificate_declined_reason || null,
         };
@@ -344,51 +351,37 @@ const updateCertificateStatus = async (req, res) => {
 
     // APPROVED
     if (Number(status) === 2) {
-      // Agar pehle se certificate hai to Cloudinary se delete karo
-      if (enrollment.certificate_public_id) {
-        await deleteCertificateFile(enrollment.certificate_public_id);
-      }
-      const uniqueCertNo = await generateUniqueCertNo(Enrollment);
+      // keep the number when re-approving so a certificate never changes under the student
+      const uniqueCertNo = enrollment.certificate_no || (await generateUniqueCertNo(Enrollment));
 
-      const userName = `${enrollment.user_id.c_first_name} ${enrollment.user_id.c_last_name}`;
+      const userName = [enrollment.user_id.c_first_name, enrollment.user_id.c_last_name].filter(Boolean).join(" ");
       const courseTitle = enrollment.course_id.m_course_title;
-
       const categoryName =
         enrollment.course_id.m_course_category?.m_category_name || "bootcamp";
+      const approvedAt = new Date();
 
-      
-      const pdfBytes = await generateCertificatePDF(
-        userName,
-        courseTitle,
-        categoryName,
-        uniqueCertNo,
-      );
+      // Generate once now so a broken template/font fails here, in front of the admin,
+      // instead of when the student tries to download.
+      await generateCertificatePDF(userName, courseTitle, categoryName, uniqueCertNo, approvedAt);
 
-      
+      // older certificates were uploaded to Cloudinary; clean those up but never block on it
+      if (enrollment.certificate_public_id) {
+        await deleteCertificateFile(enrollment.certificate_public_id).catch(() => {});
+      }
 
-      const uploaded = await uploadBufferWithMeta(
-        pdfBytes,
-        `Cert_${uniqueCertNo}.pdf`,
-        "application/pdf",
-        "certificates",
-      );
-
-      // 4. DB Update
       enrollment.certificate_status = 2;
       enrollment.certificate_no = uniqueCertNo;
-      // enrollment.certificate_pdf = filePath;
-      enrollment.certificate_pdf = uploaded.url;
-      enrollment.certificate_public_id = uploaded.public_id;
-      enrollment.certificate_approved_at = new Date();
+      enrollment.certificate_pdf = signedCertificateUrl(enrollment._id);
+      enrollment.certificate_public_id = null;
+      enrollment.certificate_approved_at = approvedAt;
       enrollment.certificate_declined_reason = null;
 
       message = "Certificate approved successfully";
     }
 
-    
-    else if (Number(status) === 3) {
+        else if (Number(status) === 3) {
       if (enrollment.certificate_public_id) {
-        await deleteCertificateFile(enrollment.certificate_public_id);
+        await deleteCertificateFile(enrollment.certificate_public_id).catch(() => {});
       }
 
       enrollment.certificate_status = 3;
@@ -408,7 +401,7 @@ const updateCertificateStatus = async (req, res) => {
     
     else {
       if (enrollment.certificate_public_id) {
-        await deleteCertificateFile(enrollment.certificate_public_id);
+        await deleteCertificateFile(enrollment.certificate_public_id).catch(() => {});
       }
 
       enrollment.certificate_status = 1;
@@ -429,7 +422,7 @@ const updateCertificateStatus = async (req, res) => {
       message,
       data: {
         cert_no: enrollment.certificate_no,
-        pdf_url: enrollment.certificate_pdf,
+        pdf_url: certificateUrlFor(enrollment),
       },
     });
   } catch (error) {
@@ -445,87 +438,78 @@ const updateCertificateStatus = async (req, res) => {
 // DOWNLOAD CERTIFICATE
 // =======================================================
 
-const downloadCertificateByEnrollmentId = async (req, res) => {
-  // console.log("Download API Hit");
+// Builds the certificate PDF for an approved enrolment. Returns { error, code } instead of a PDF
+// when it cannot be issued.
+const buildCertificate = async (enrollment) => {
+  if (!enrollment) return { code: 404, error: "Certificate not found" };
+  if (enrollment.certificate_status !== 2 || !enrollment.certificate_no) {
+    return { code: 400, error: "Certificate not approved yet" };
+  }
 
+  const [student, course] = await Promise.all([
+    Candidate.findById(enrollment.user_id).select("c_first_name c_last_name c_display_name").lean(),
+    Course.findById(enrollment.course_id)
+      .select("m_course_title m_course_category")
+      .populate({ path: "m_course_category", select: "m_category_name" })
+      .lean(),
+  ]);
+
+  const name =
+    [student?.c_first_name, student?.c_last_name].filter(Boolean).join(" ") || student?.c_display_name;
+  if (!name || !course) return { code: 409, error: "Student or course details are missing" };
+
+  const pdf = await generateCertificatePDF(
+    name,
+    course.m_course_title,
+    course.m_course_category?.m_category_name || "bootcamp",
+    enrollment.certificate_no,
+    enrollment.certificate_approved_at || enrollment.updatedAt,
+  );
+  return { pdf: Buffer.from(pdf), certNo: enrollment.certificate_no };
+};
+
+const sendCertificate = (res, { pdf, certNo }) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="Certificate_${certNo}.pdf"`);
+  res.setHeader("Content-Length", pdf.length);
+  res.setHeader("Cache-Control", "private, no-store");
+  return res.end(pdf);
+};
+
+// GET /certificate/download/:course_id  — the logged-in student's own certificate
+const downloadMyCertificate = async (req, res) => {
+  try {
+    const enrollment = await Enrollment.findOne({ user_id: req.user.id, course_id: req.params.course_id });
+    if (!enrollment) return res.status(404).json({ status: false, message: "Enrollment not found" });
+
+    const built = await buildCertificate(enrollment);
+    if (built.error) return res.status(built.code).json({ status: false, message: built.error });
+    return sendCertificate(res, built);
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+// GET /certificate/signed/:enrollment_id?sig=...  — link used by the admin panel and the mobile app
+const downloadSignedCertificate = async (req, res) => {
   try {
     const { enrollment_id } = req.params;
-    // console.log("Enrollment ID:", enrollment_id);
-
-    const enrollment = await Enrollment.findById(enrollment_id);
-
-    //  console.log("Enrollment:", enrollment);
-
-    if (!enrollment) {
-      //  console.log("Enrollment not found");
-      return res.status(404).json({
-        status: false,
-        message: "Enrollment not found",
-      });
+    if (!mongoose.Types.ObjectId.isValid(enrollment_id) || !verify("certificate", enrollment_id, req.query.sig)) {
+      return res.status(404).json({ status: false, message: "Certificate not found" });
     }
-
-    // console.log("Certificate Status:", enrollment.certificate_status);
-    // console.log("Certificate PDF:", enrollment.certificate_pdf);
-
-    // if (enrollment.certificate_status !== 2) {
-    //   return res.status(400).json({
-    //     status: false,
-    //     message: "Certificate not approved yet",
-    //   });
-    // }
-
-    // if (!enrollment.certificate_pdf) {
-    //   return res.status(404).json({
-    //     status: false,
-    //     message: "Certificate PDF not found",
-    //   });
-    // }
-
-    // if (!fs.existsSync(enrollment.certificate_pdf)) {
-    //   return res.status(404).json({
-    //     status: false,
-    //     message: "Certificate file does not exist",
-    //   });
-    // }
-
-    // return res.download(
-    //   enrollment.certificate_pdf,
-    //   `${enrollment.certificate_no || "certificate"}.pdf`,
-    // );
-
-    if (enrollment.certificate_status !== 2) {
-      return res.status(400).json({
-        status: false,
-        message: "Certificate not approved yet",
-      });
-    }
-
-    if (!enrollment.certificate_pdf) {
-      return res.status(404).json({
-        status: false,
-        message: "Certificate PDF not found",
-      });
-    }
-
-    // Redirect to Cloudinary PDF
-    return res.redirect(enrollment.certificate_pdf);
+    const built = await buildCertificate(await Enrollment.findById(enrollment_id));
+    if (built.error) return res.status(built.code).json({ status: false, message: built.error });
+    return sendCertificate(res, built);
   } catch (error) {
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
 
 module.exports = {
   getCertificateStatus,
-
   requestCertificate,
-
   getCertificateRequests,
-
   updateCertificateStatus,
-
-  // downloadCertificate,
-  downloadCertificateByEnrollmentId,
+  downloadMyCertificate,
+  downloadSignedCertificate,
 };

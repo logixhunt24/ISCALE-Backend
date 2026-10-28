@@ -25,6 +25,7 @@ const {
   toggleTestSeriesStatus,
   toggleLiveClassStatus,
 } = require("../controllers/adminRegistrationsSectionController");
+const { downloadInvoiceAdmin, updateInvoiceAmounts } = require("../controllers/invoiceController");
 
 router.get(
   "/course-registrations",
@@ -167,5 +168,9 @@ router.patch(
   adminMiddleware,
   toggleLiveClassStatus,
 );
+
+router.get("/invoice/:enrollment_id", authMiddleware, adminMiddleware, downloadInvoiceAdmin);
+
+router.patch("/update-invoice/:enrollment_id", authMiddleware, adminMiddleware, updateInvoiceAmounts);
 
 module.exports = router;

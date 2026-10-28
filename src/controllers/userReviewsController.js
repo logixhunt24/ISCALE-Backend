@@ -1,6 +1,17 @@
 const UserReview = require("../models/user_reviews");
 const mongoose = require("mongoose");
 const fs = require("fs");
+const Course = require("../models/course");
+
+// "" / null -> null (site-wide); a real id must be a course that exists.
+// Returns { value } or { error }.
+const parseCourseId = async (raw) => {
+  if (raw === undefined) return { skip: true };
+  if (raw === null || raw === "" || raw === "null") return { value: null };
+  if (!mongoose.Types.ObjectId.isValid(raw)) return { error: "Invalid course" };
+  if (!(await Course.exists({ _id: raw }))) return { error: "Course not found" };
+  return { value: raw };
+};
 
 // ==========================================
 // ADD USER REVIEW
@@ -15,6 +26,7 @@ const addUserReview = async (req, res) => {
       user_designation,
       user_review,
       rating,
+      course_id,
     } = req.body;
 
     // ==========================================
@@ -51,8 +63,15 @@ const addUserReview = async (req, res) => {
     // CREATE
     // ==========================================
 
+    const course = await parseCourseId(course_id);
+    if (course.error) {
+      if (uploadedImage && fs.existsSync(uploadedImage)) fs.unlinkSync(uploadedImage);
+      return res.status(400).send({ status: false, message: course.error });
+    }
+
     const parsedRating = Number(rating);
     const data = new UserReview({
+      course_id: course.value ?? null,
       user_name: user_name || null,
       user_designation: user_designation || null,
       user_review: user_review || null,
@@ -102,7 +121,13 @@ const getAllUserReviews = async (req, res) => {
     page = Number(page);
     limit = Number(limit);
 
-    const filter = {};
+    // req.user is only set by authMiddleware, so the public mount sees active reviews only
+    const filter = req.user ? {} : { status: "active" };
+
+    if (req.user && req.query.course_id) {
+      if (req.query.course_id === "none") filter.course_id = null;
+      else if (mongoose.Types.ObjectId.isValid(req.query.course_id)) filter.course_id = req.query.course_id;
+    }
 
     // ==========================================
     // SEARCH
@@ -145,6 +170,7 @@ const getAllUserReviews = async (req, res) => {
     // ==========================================
 
     const data = await UserReview.find(filter)
+      .populate({ path: "course_id", select: "m_course_title" })
 
       .sort({ createdAt: -1 })
 
@@ -346,6 +372,7 @@ const updateUserReview = async (req, res) => {
       user_review,
       rating,
       status,
+      course_id,
     } = req.body;
 
     // ==========================================
@@ -380,6 +407,16 @@ const updateUserReview = async (req, res) => {
         review.rating = parsedRating;
       }
     }
+
+    const course = await parseCourseId(course_id);
+    if (course.error) {
+      if (req.files?.user_image) {
+        const p = req.files.user_image[0].path;
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+      return res.status(400).send({ status: false, message: course.error });
+    }
+    if (!course.skip) review.course_id = course.value;
 
     // ==========================================
     // IMAGE UPDATE

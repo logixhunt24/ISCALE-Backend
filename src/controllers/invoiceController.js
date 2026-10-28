@@ -1,4 +1,3 @@
-const crypto = require("crypto");
 const mongoose = require("mongoose");
 
 const Enrollment = require("../models/course_enrollment");
@@ -8,22 +7,12 @@ const ApplicationSetting = require("../models/application_settings");
 const InvoiceCounter = require("../models/invoice_counter");
 const { generateInvoicePDF } = require("../utils/invoiceGenerator");
 
-const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || "https://api.theiscale.com").replace(/\/$/, "");
+const { sign, verify, apiBase } = require("../utils/signedLink");
 
 const validId = (v) => mongoose.Types.ObjectId.isValid(v);
 
-// Signed links let the mobile app open the PDF in a browser/viewer that cannot send a bearer token.
-const sign = (enrollmentId) =>
-  crypto.createHmac("sha256", process.env.JWT_SECRET || "").update(`invoice:${enrollmentId}`).digest("hex");
-
-const safeEqual = (a, b) => {
-  const x = Buffer.from(String(a));
-  const y = Buffer.from(String(b));
-  return x.length === y.length && crypto.timingSafeEqual(x, y);
-};
-
 const signedInvoiceUrl = (enrollmentId) =>
-  `${PUBLIC_API_URL}/api/invoice/signed/${enrollmentId}?sig=${sign(enrollmentId)}`;
+  `${apiBase()}/api/invoice/signed/${enrollmentId}?sig=${sign("invoice", enrollmentId)}`;
 
 // Only paid, non-free enrolments get an invoice.
 const isInvoiceable = (e) =>
@@ -144,7 +133,7 @@ const downloadSignedInvoice = async (req, res) => {
   try {
     const { enrollment_id } = req.params;
     const { sig } = req.query;
-    if (!validId(enrollment_id) || !sig || !safeEqual(sig, sign(enrollment_id))) {
+    if (!validId(enrollment_id) || !sig || !verify("invoice", enrollment_id, sig)) {
       return res.status(404).json({ status: false, message: "Invoice not found" });
     }
 
@@ -159,7 +148,71 @@ const downloadSignedInvoice = async (req, res) => {
   }
 };
 
+// ---------------------------------------------------------------- admin panel
+
+// GET /myadmin/registrations/invoice/:enrollment_id — any paid registration, for support/accounts
+const downloadInvoiceAdmin = async (req, res) => {
+  try {
+    if (!validId(req.params.enrollment_id)) return res.status(400).json({ status: false, message: "Invalid enrollment id" });
+
+    const enrollment = await Enrollment.findById(req.params.enrollment_id);
+    if (!enrollment) return res.status(404).json({ status: false, message: "Registration not found" });
+    if (enrollment.payment_status !== 1 || !(Number(enrollment.payable_amount ?? enrollment.amount) > 0)) {
+      return res.status(400).json({ status: false, message: "This registration has no paid amount, so there is no invoice." });
+    }
+
+    return sendPdf(res, await buildInvoice(enrollment));
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+// PATCH /myadmin/registrations/update-invoice/:enrollment_id  { discount?, payable_amount? }
+// The payable amount is the source of truth; the discount is always (course amount - payable).
+const updateInvoiceAmounts = async (req, res) => {
+  try {
+    if (!validId(req.params.enrollment_id)) return res.status(400).json({ status: false, message: "Invalid enrollment id" });
+
+    const enrollment = await Enrollment.findById(req.params.enrollment_id);
+    if (!enrollment) return res.status(404).json({ status: false, message: "Registration not found" });
+
+    const num = (v) => (v === undefined || v === null || v === "" ? undefined : Number(v));
+    const discount = num(req.body.discount);
+    let payable = num(req.body.payable_amount);
+
+    if ([discount, payable].some((v) => v !== undefined && (!Number.isFinite(v) || v < 0))) {
+      return res.status(400).json({ status: false, message: "Amounts must be numbers of zero or more" });
+    }
+    if (discount === undefined && payable === undefined) {
+      return res.status(400).json({ status: false, message: "Provide a discount or a payable amount" });
+    }
+
+    let original = Number(enrollment.original_amount ?? enrollment.amount ?? 0);
+    if (payable === undefined) payable = Math.max(0, original - discount);
+    if (original <= 0) original = payable; // nothing recorded before; treat what was charged as the course fee
+    if (payable > original) {
+      return res.status(400).json({ status: false, message: "The payable amount cannot be more than the course amount" });
+    }
+
+    enrollment.original_amount = original;
+    enrollment.discount_amount = original - payable;
+    enrollment.payable_amount = payable;
+    enrollment.amount = payable;
+    await enrollment.save();
+
+    return res.json({
+      status: true,
+      message: "Invoice updated",
+      data: { course_amount: original, discount_amount: original - payable, payable_amount: payable },
+    });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
 module.exports = {
+  downloadInvoiceAdmin,
+  updateInvoiceAmounts,
   downloadCourseInvoice,
   downloadSignedInvoice,
   isInvoiceable,

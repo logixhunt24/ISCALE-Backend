@@ -10,6 +10,7 @@ const Event = require("../models/event");
 const JobApplication = require("../models/company_requirement_application");
 const Coupon = require("../models/coupon");
 const Candidate = require("../models/candidates");
+const { certificateUrlFor } = require("../utils/certificateLinks");
 const Job = require("../models/company_requirement");
 const mongoose = require("mongoose");
 
@@ -228,7 +229,11 @@ const getCourseRegistrations = async (req, res) => {
           batch_subject: enrollment.batch_id?.subject || null,
 
           // CERTIFICATE
-          certificate_status: enrollment.certificate_status || 1,
+          // 0 not requested, 1 pending, 2 approved, 3 declined
+          certificate_status: enrollment.certificate_status || 0,
+          certificate_no: enrollment.certificate_no || "",
+          certificate_pdf: certificateUrlFor(enrollment) || "",
+          declined_reason: enrollment.certificate_declined_reason || "",
 
           // if coupon is available
           coupon: enrollment.coupon_id

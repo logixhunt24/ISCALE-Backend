@@ -37,6 +37,22 @@ const userReviewSchema = new mongoose.Schema(
       default: 5,
     },
 
+    // null = a site-wide testimonial shown on every course; otherwise only on that course
+    course_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "course",
+      default: null,
+      index: true,
+    },
+
+    // set when the admin published a mobile-app review (course_review) to the website
+    source_review_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "course_review",
+      default: null,
+      index: true,
+    },
+
     status: {
       type: String,
       enum: ["active", "inactive"],

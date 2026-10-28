@@ -223,7 +223,11 @@ const addCoupon = async (req, res) => {
 
       coupon_type: req.body.coupon_type,
 
-      coupon_type_id: req.body.coupon_type_id,
+      coupon_type_id: req.body.coupon_type_id || null, // blank = every item of this type
+
+      amount: Number(req.body.amount) || 0,
+
+      offer_amount: Number(req.body.offer_amount) || 0,
 
       coupon_discount_type: req.body.coupon_discount_type,
 
@@ -273,6 +277,8 @@ const updateCoupon = async (req, res) => {
     Object.keys(req.body).forEach((key) => {
       coupon[key] = req.body[key];
     });
+
+    if ("coupon_type_id" in req.body && !req.body.coupon_type_id) coupon.coupon_type_id = null;
 
     await coupon.save();
 
@@ -371,7 +377,35 @@ const deleteCoupon = async (req, res) => {
   }
 };
 
+// GET /coupons/items?type=1|2|3 — what a coupon of that type can be tied to (active items only)
+const getCouponItems = async (req, res) => {
+  try {
+    const type = Number(req.query.type);
+
+    const sources = {
+      1: async () =>
+        (await Course.find({ m_course_status: 1 }).select("m_course_title m_course_price m_course_offer_price").sort({ m_course_title: 1 }).limit(1000).lean())
+          .map((c) => ({ _id: c._id, title: c.m_course_title, price: Number(c.m_course_price) || 0, offer_price: Number(c.m_course_offer_price) || 0 })),
+      2: async () =>
+        (await TestPackage.find({ m_package_status: 1 }).select("m_package_title m_package_price m_package_offer_price").sort({ m_package_title: 1 }).limit(1000).lean())
+          .map((p) => ({ _id: p._id, title: p.m_package_title, price: Number(p.m_package_price) || 0, offer_price: Number(p.m_package_offer_price) || 0 })),
+      3: async () =>
+        (await Notes.find({ notes_status: 1 }).select("notes_name notes_price notes_offer_price").sort({ notes_name: 1 }).limit(1000).lean())
+          .map((n) => ({ _id: n._id, title: n.notes_name, price: Number(n.notes_price) || 0, offer_price: Number(n.notes_offer_price) || 0 })),
+    };
+
+    if (!sources[type]) {
+      return res.status(400).json({ status: false, message: "type must be 1 (course), 2 (test series) or 3 (notes)" });
+    }
+
+    return res.json({ status: true, data: await sources[type]() });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
 module.exports = {
+  getCouponItems,
   addCoupon,
   updateCoupon,
   getSingleCoupon,

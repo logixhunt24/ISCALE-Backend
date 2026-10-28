@@ -10,6 +10,7 @@ const {
   changeCouponVisible,
   changeCouponStatus,
   deleteCoupon,
+  getCouponItems,
 } = require("../controllers/couponController");
 
 const { authMiddleware } = require("../middlewares/authMiddleware");
@@ -20,6 +21,8 @@ router.post("/add",authMiddleware,adminMiddleware, addCoupon);
 router.put("/update/:id",authMiddleware,adminMiddleware, updateCoupon);
 
 router.get("/all",authMiddleware,adminMiddleware, getAllCoupons);
+
+router.get("/items", authMiddleware, adminMiddleware, getCouponItems);
 
 router.get("/:id",authMiddleware,adminMiddleware, getSingleCoupon);
 

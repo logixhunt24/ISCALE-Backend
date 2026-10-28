@@ -7,6 +7,7 @@ const Lecture = require("../models/lecture");
 const LectureProgress = require("../models/lecture_progress");
 const Candidate = require("../models/candidates");
 const { isInvoiceable } = require("./invoiceController");
+const { certificateUrlFor } = require("../utils/certificateLinks");
 
 // GET ENROLLED FREE COURSES
 const getEnrolledFreeCourses = async (req, res) => {
@@ -371,7 +372,7 @@ const getCourseAccessDetails = async (req, res) => {
 
       certificate_no: enrollment.certificate_no,
 
-      certificate_pdf: enrollment.certificate_pdf,
+      certificate_pdf: certificateUrlFor(enrollment),
 
       certificate_date: enrollment.certificate_date,
     });
@@ -598,7 +599,7 @@ const appGetEnrollmentStatus = async (req, res) => {
 
         t_reg_certificate_number: enrollment.certificate_no,
 
-        t_reg_certificate_pdf: enrollment.certificate_pdf,
+        t_reg_certificate_pdf: certificateUrlFor(enrollment),
 
         t_reg_certificate_date: enrollment.certificate_approved_at
           ? enrollment.certificate_approved_at.toISOString().split("T")[0]
@@ -650,7 +651,7 @@ const appGetCertificateStatus = async (req, res) => {
         user_id: enrollment.user_id.toString(),
         course_id: enrollment.course_id.toString(),
         certificate_number: enrollment.certificate_no || "",
-        certificate_file: enrollment.certificate_pdf || "",
+        certificate_file: certificateUrlFor(enrollment) || "",
         status: String(enrollment.certificate_status),
       },
     });

@@ -13,8 +13,8 @@ const {
   requestCertificate,
   getCertificateRequests,
   updateCertificateStatus,
-  // downloadCertificate,
-  downloadCertificateByEnrollmentId
+  downloadMyCertificate,
+  downloadSignedCertificate,
 } = require("../controllers/certificateController");
 
 const { adminMiddleware } = require("../middlewares/adminMiddleware");
@@ -32,7 +32,10 @@ router.get(
 
 router.post("/request", authMiddleware, userMiddleware, requestCertificate);
 
-// router.get("/download/:course_id",authMiddleware, userMiddleware, downloadCertificate);
+router.get("/download/:course_id", authMiddleware, userMiddleware, downloadMyCertificate);
+
+// Signed link (admin panel, mobile app) - no login, the signature is the credential
+router.get("/signed/:enrollment_id", downloadSignedCertificate);
 
 // ADMIN
 router.get(
@@ -55,11 +58,6 @@ router.put(
   authMiddleware,
   adminMiddleware,
   updateCertificateStatus,
-);
-
-router.get(
-  "/get/certificate/:enrollment_id",
-  downloadCertificateByEnrollmentId,
 );
 
 module.exports = router;
