@@ -37,6 +37,7 @@ const addSubject = async (req, res) => {
       m_subject_status,
       m_subject_seq,
       m_subject_module,
+      code,
       // m_subject_for,
     } = req.body;
 
@@ -82,6 +83,7 @@ const addSubject = async (req, res) => {
       m_subject_title,
       m_subject_course,
       m_subject_module: moduleResult.skip ? null : moduleResult.value,
+      code: code || null,
       // m_subject_course_slug: course.slug,
       m_subject_icon: icon,
       m_subject_icon_public_id: iconPublicId,
@@ -199,6 +201,7 @@ const getSubjectsByCourse = async (req, res) => {
       m_subject_course: subject.m_subject_course,
       m_subject_title: subject.m_subject_title,
       m_subject_desc: subject.m_subject_desc,
+      code: subject.code,
       m_subject_status: subject.m_subject_status,
       m_subject_seq: subject.m_subject_seq,
       code: subject.code,
@@ -324,8 +327,9 @@ const updateSubject = async (req, res) => {
       });
     }
 
-    const { m_subject_title, m_subject_desc, m_subject_status, m_subject_seq, m_subject_module } =
+    const { m_subject_title, m_subject_desc, m_subject_status, m_subject_seq, m_subject_module, code } =
       req.body;
+    if (code !== undefined) subject.code = code.trim() || null;
 
     const moduleResult = await resolveModule(m_subject_module, subject.m_subject_course);
     if (moduleResult.error) {

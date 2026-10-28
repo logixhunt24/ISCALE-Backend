@@ -182,7 +182,7 @@ const getCourseContent = async (req, res) => {
       ml_subject: { $in: subjects.map((s) => s._id) },
       ml_status: 1,
     })
-      .select("_id ml_title ml_subject")
+      .select("_id ml_title ml_code ml_subject")
       .sort({ ml_seq: 1 });
 
     const topicsBySubject = {};
@@ -191,12 +191,14 @@ const getCourseContent = async (req, res) => {
       (topicsBySubject[key] = topicsBySubject[key] || []).push({
         _id: l._id,
         title: l.ml_title,
+        code: l.ml_code || "",
       });
     });
 
     const shapeSubject = (s) => ({
       _id: s._id,
       title: s.m_subject_title,
+      code: s.code || "",
       description: s.m_subject_desc || "",
       topics: topicsBySubject[String(s._id)] || [],
     });
