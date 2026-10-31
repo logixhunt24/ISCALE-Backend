@@ -75,6 +75,52 @@ const pickPlan = (plans, planIndex) => {
   return plans[0];
 };
 
+// Coupon dates are calendar days entered in the academy's local time. They are saved as
+// midnight, so comparing "now" with that instant made a coupon die on the MORNING of its
+// last day (the old site counted the end date inclusively). A day runs 00:00 - 23:59:59 local.
+const SITE_TZ = process.env.SITE_TZ_OFFSET || process.env.QUIZ_TZ_OFFSET || "+05:30";
+const dayStart = (date) => new Date(`${new Date(date).toISOString().slice(0, 10)}T00:00:00${SITE_TZ}`);
+const dayEnd = (date) => new Date(`${new Date(date).toISOString().slice(0, 10)}T23:59:59.999${SITE_TZ}`);
+
+// Why a coupon cannot be used on this course/amount right now, or null if it can.
+// Used both to validate a typed code and to decide which coupons to list.
+const couponProblem = (coupon, course, amount) => {
+  if (coupon.coupon_type && Number(coupon.coupon_type) !== 1) {
+    return "This promo code isn't valid for courses";
+  }
+  if (coupon.coupon_type_id && String(coupon.coupon_type_id) !== String(course._id)) {
+    return "This promo code isn't valid for this course";
+  }
+
+  const now = new Date();
+  if (coupon.coupon_start_date && now < dayStart(coupon.coupon_start_date)) {
+    return "This promo code isn't active yet";
+  }
+  if (coupon.coupon_end_date && now > dayEnd(coupon.coupon_end_date)) {
+    return "This promo code has expired";
+  }
+  if (coupon.total_coupon > 0 && coupon.used_coupon >= coupon.total_coupon) {
+    return "This promo code's usage limit has been reached";
+  }
+  if (coupon.coupon_min_amount > 0 && amount < coupon.coupon_min_amount) {
+    return `This promo code needs an order of at least ₹${coupon.coupon_min_amount}`;
+  }
+  return null;
+};
+
+// Rupees off `amount` for this coupon (0 when it gives nothing).
+const couponDiscount = (coupon, amount) => {
+  let discount =
+    coupon.coupon_discount_type === "percent"
+      ? (amount * (Number(coupon.coupon_discount) || 0)) / 100
+      : Number(coupon.coupon_discount) || 0;
+  if (coupon.coupon_max_amount > 0) {
+    discount = Math.min(discount, coupon.coupon_max_amount);
+  }
+  // Always leave at least ₹1 to pay - Razorpay can't create a zero-amount order.
+  return Math.max(0, Math.min(Math.round(discount), Math.floor(amount) - 1));
+};
+
 // Validates a promo code against a course/amount and returns either
 // { coupon, discount } or { error }.
 const evaluateCoupon = async (code, course, amount) => {
@@ -87,41 +133,10 @@ const evaluateCoupon = async (code, course, amount) => {
   });
   if (!coupon) return { error: "Invalid or expired promo code" };
 
-  if (coupon.coupon_type && Number(coupon.coupon_type) !== 1) {
-    return { error: "This promo code isn't valid for courses" };
-  }
-  if (
-    coupon.coupon_type_id &&
-    String(coupon.coupon_type_id) !== String(course._id)
-  ) {
-    return { error: "This promo code isn't valid for this course" };
-  }
+  const problem = couponProblem(coupon, course, amount);
+  if (problem) return { error: problem };
 
-  const now = new Date();
-  if (coupon.coupon_start_date && now < new Date(coupon.coupon_start_date)) {
-    return { error: "This promo code isn't active yet" };
-  }
-  if (coupon.coupon_end_date && now > new Date(coupon.coupon_end_date)) {
-    return { error: "This promo code has expired" };
-  }
-  if (coupon.total_coupon > 0 && coupon.used_coupon >= coupon.total_coupon) {
-    return { error: "This promo code's usage limit has been reached" };
-  }
-  if (coupon.coupon_min_amount > 0 && amount < coupon.coupon_min_amount) {
-    return {
-      error: `This promo code needs an order of at least ₹${coupon.coupon_min_amount}`,
-    };
-  }
-
-  let discount =
-    coupon.coupon_discount_type === "percent"
-      ? (amount * (Number(coupon.coupon_discount) || 0)) / 100
-      : Number(coupon.coupon_discount) || 0;
-  if (coupon.coupon_max_amount > 0) {
-    discount = Math.min(discount, coupon.coupon_max_amount);
-  }
-  // Always leave at least ₹1 to pay - Razorpay can't create a zero-amount order.
-  discount = Math.max(0, Math.min(Math.round(discount), Math.floor(amount) - 1));
+  const discount = couponDiscount(coupon, amount);
   if (discount <= 0) return { error: "This promo code gives no discount here" };
 
   return { coupon, discount };
@@ -214,6 +229,53 @@ const getSummary = async (req, res) => {
     });
   } catch (err) {
     console.error("checkout summary error:", err);
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+// GET /api/checkout/coupons/:courseId?plan=
+// The promo codes shown on the payment page: active, visible, for this course (or any course),
+// inside their dates, with uses left, and actually giving a discount on the chosen plan.
+const getAvailableCoupons = async (req, res) => {
+  try {
+    const course = await findPayableCourse(req.params.courseId);
+    if (!course) return res.status(404).json({ status: false, message: "Course not found" });
+    if (Number(course.m_course_type) === 1) return res.json({ status: true, data: [] });
+
+    const plan = pickPlan(getPlans(course), req.query.plan);
+
+    const candidates = await Coupon.find({
+      coupon_status: 1,
+      coupon_visible: "yes",
+      coupon_code: { $nin: [null, ""] },
+      $and: [
+        { $or: [{ coupon_type: 1 }, { coupon_type: null }] },
+        { $or: [{ coupon_type_id: null }, { coupon_type_id: course._id }] },
+      ],
+    })
+      .sort({ _id: -1 })
+      .limit(100)
+      .lean();
+
+    const data = candidates
+      .filter((c) => !couponProblem(c, course, plan.final))
+      .map((c) => ({
+        code: c.coupon_code,
+        title: c.coupon_title || "",
+        details: c.coupon_details || "",
+        discountType: c.coupon_discount_type === "percent" ? "percent" : "flat",
+        discountValue: Number(c.coupon_discount) || 0,
+        saving: couponDiscount(c, plan.final),
+        remaining: c.total_coupon > 0 ? Math.max(c.total_coupon - c.used_coupon, 0) : null,
+        validTill: c.coupon_end_date || null,
+      }))
+      .filter((c) => c.saving > 0)
+      .sort((x, y) => y.saving - x.saving)
+      .slice(0, 12);
+
+    return res.json({ status: true, data });
+  } catch (err) {
+    console.error("checkout coupons error:", err);
     return res.status(500).json({ status: false, message: err.message });
   }
 };
@@ -489,4 +551,4 @@ const razorpayWebhook = async (req, res) => {
   }
 };
 
-module.exports = { getSummary, createOrder, verifyPayment, getOrderStatus, razorpayWebhook };
+module.exports = { getSummary, getAvailableCoupons, createOrder, verifyPayment, getOrderStatus, razorpayWebhook };

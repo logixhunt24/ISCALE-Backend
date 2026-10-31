@@ -126,8 +126,6 @@ const storage = new CloudinaryStorage({
       folder = "brand-videos";
     } else if (file.fieldname === "setting_file") {
       folder = "settings";
-    } else if (file.fieldname === "phone_image") {
-      folder = "phone-images";
     }
 
     // Cloudinary rejects public_ids with leading/trailing whitespace (and
@@ -576,15 +574,6 @@ const fileFilter = (req, file, cb) => {
   }
 
 
-  // Phone image upload - only images
-  else if (file.fieldname === "phone_image") {
-  if (allowedImageTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files allowed"), false);
-  }
-}
-
   // Other fields
   else {
     cb(new Error("Unknown file field"), false);
@@ -793,8 +782,6 @@ const settingUpload = upload.fields([
 ]);
 
 
-const phoneImageUpload = upload.single("phone_image");
-
 const whoWeAreUpload = upload.fields([
   { name: "card_image_0", maxCount: 1 },
   { name: "card_image_1", maxCount: 1 },
@@ -840,6 +827,5 @@ module.exports = {
   successStoryUpload,
   adminUpload,
   brandVideoUpload,
-  settingUpload,
-  phoneImageUpload
+  settingUpload
 };

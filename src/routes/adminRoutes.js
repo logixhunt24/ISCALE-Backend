@@ -24,6 +24,7 @@ const stdTestimonialRoutes = require("./stdTestimonialRoutes");
 const compRequirementRoutes = require("./compRequirementRoutes");
 const careerFitRoutes = require("./careerFitRoutes");
 const primeHiringDestinationRoutes = require("./primeHiringDestinationRoutes");
+const popularCategoryRoutes = require("./popularCategoryRoutes");
 const eventCategoryRoutes = require("./eventCategoryRoutes");
 const eventRoutes = require("./eventRoutes");
 const pptRoutes = require("./pptRoutes");
@@ -64,7 +65,6 @@ const contactQueriesRoutes = require("./contactQueriesRoutes");
 const hiringFormRoutes = require("./hiringFormRoutes");
 const appSettingsRoutes = require("./appSettingsRoutes");
 const dataAnalyticsRoutes = require("./dataAnalyticsRoutes");
-const phoneImageRoutes = require("./phoneImageRoutes");
 
 
 
@@ -78,6 +78,7 @@ router.use("/faq", faqRoutes);
 router.use("/feature", featuresRoutes);
 router.use("/career-fit", careerFitRoutes);
 router.use("/hiring-destination", primeHiringDestinationRoutes);
+router.use("/popular-category", popularCategoryRoutes);
 router.use("/tools", toolsRoutes);
 router.use("/subject", subjectRoutes);
 router.use("/module", moduleRoutes);
@@ -132,7 +133,6 @@ router.use("/contact-us", contactQueriesRoutes);
 router.use("/hiring-form", hiringFormRoutes);
 router.use("/app-settings", appSettingsRoutes);
 router.use("/data-analytics", dataAnalyticsRoutes);
-router.use("/phone-images", phoneImageRoutes);
 
 
 

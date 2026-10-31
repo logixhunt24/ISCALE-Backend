@@ -2,6 +2,7 @@ console.log("course Controller Hit");
 
 const { toPublicUrl } = require("../utils/imageUrl");
 const Course = require("../models/course");
+const { addToAllPrograms } = require("./popularCategoryController");
 const slugify = require("slugify");
 // const fs = require("fs");
 const Category = require("../models/category");
@@ -572,6 +573,14 @@ const addCourse = async (req, res) => {
     });
 
     const savedCourse = await newCourse.save();
+
+    // New courses go to the top of the homepage's All Programs list; a failure
+    // here must never fail the course creation itself.
+    try {
+      await addToAllPrograms(savedCourse._id);
+    } catch (err) {
+      console.error("Add to All Programs failed:", err.message);
+    }
 
     return res.status(201).json({
       status: true,
