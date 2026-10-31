@@ -855,6 +855,68 @@ exports.createPassword = async (req, res) => {
   }
 };
 
+// Finishes a Google sign-up: same details the mobile registration form
+// collects. The mobile number is required for Indian accounts (10 digits) and
+// optional for international ones (any +country number). No OTP either way -
+// our SMS vendor can't reach international numbers, and this flow never
+// verifies the number.
+exports.completeGoogleProfile = async (req, res) => {
+  try {
+    const { fname, lname, whatsapp, password, india } = req.body;
+    const mobile = String(req.body.mobile || "").trim();
+
+    if (!fname || !String(fname).trim()) {
+      return res.status(400).json({ status: false, message: "First name is required" });
+    }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,}$/.test(password || "")) {
+      return res.status(400).json({
+        status: false,
+        message: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one special character.",
+      });
+    }
+    if (india && !/^[0-9]{10}$/.test(mobile)) {
+      return res.status(400).json({ status: false, message: "A 10-digit mobile number is required for India" });
+    }
+    if (mobile && !/^\+?[0-9]{7,15}$/.test(mobile)) {
+      return res.status(400).json({ status: false, message: "Enter a valid mobile number" });
+    }
+    const whatsappDigits = String(whatsapp || "").replace(/\D/g, "");
+    if (!whatsappDigits) {
+      return res.status(400).json({ status: false, message: "WhatsApp number is required" });
+    }
+
+    const user = await Candidate.findById(req.user.id);
+    if (!user) return res.status(404).json({ status: false, message: "User not found" });
+    if (user.c_password) {
+      return res.status(400).json({ status: false, message: "Your profile is already complete" });
+    }
+
+    if (mobile && !user.c_contact) {
+      const taken = await Candidate.findOne({
+        $or: [{ c_contact: mobile }, { c_contact: Number(mobile) }],
+        _id: { $ne: user._id },
+      });
+      if (taken) {
+        return res.status(400).json({ status: false, message: "This mobile number is already linked to another account" });
+      }
+      user.c_contact = mobile;
+    }
+
+    user.c_first_name = String(fname).trim();
+    user.c_last_name = String(lname || "").trim();
+    user.c_whatsapp = Number(whatsappDigits);
+    user.c_password = await bcrypt.hash(password, 10);
+    user.c_password_update = 1;
+    await user.save();
+
+    await sendPasswordEmail(user.c_email, password);
+
+    return res.status(200).json({ status: true, message: "Profile completed" });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 // Forget password
 exports.sendForgotPasswordOtp = async (req, res) => {
   try {

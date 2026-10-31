@@ -78,6 +78,8 @@ const getMyProfile = async (req, res) => {
         guardianRelation: user.c_guardian_relation || "",
         mobileNumber: user.c_contact,
         hasMobile: Boolean(user.c_contact),
+        hasPassword: Boolean(user.c_password),
+        loginProvider: user.c_login_provider || "",
         altMobileNumber: user.c_alt_contact,
         whatsappNumber: user.c_whatsapp,
         email: user.c_email,

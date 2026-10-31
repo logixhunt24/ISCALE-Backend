@@ -8,6 +8,7 @@ const { candidateUpload } = require("../middlewares/uploadMiddleware");
 const updateProfileController = require("../controllers/updateProfileController");
 const emailChangeController = require("../controllers/emailChangeController");
 const mobileChangeController = require("../controllers/mobileChangeController");
+const authController = require("../controllers/authController");
 
 //  Get profile (prefill form)
 router.get(
@@ -90,6 +91,9 @@ router.post(
   userMiddleware,
   mobileChangeController.addMobileNumber,
 );
+
+// Finish a Google sign-up (name, mobile, WhatsApp, password)
+router.post("/complete-google-profile", authMiddleware, userMiddleware, authController.completeGoogleProfile);
 
 // Mobile Apis=============================================================================================================================
 
