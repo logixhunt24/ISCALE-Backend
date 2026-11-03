@@ -4,6 +4,7 @@ const router = express.Router();
 
 const {
   addCourseToWishlist,
+  removeCourseFromWishlist,
   getMyCourseWishlist,
   getAllCourseWishlistsAdmin,
   getSingleCourseWishlist,
@@ -36,6 +37,8 @@ router.post("/course/add", authMiddleware, userMiddleware, addCourseToWishlist);
 
 // GET MY WISHLIST
 router.get("/course/my", authMiddleware, userMiddleware, getMyCourseWishlist);
+
+router.delete("/course/remove/:courseId", authMiddleware, userMiddleware, removeCourseFromWishlist);
 
 // ADMIN
 

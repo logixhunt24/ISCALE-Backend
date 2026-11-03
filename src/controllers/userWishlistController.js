@@ -70,6 +70,20 @@ const addCourseToWishlist = async (req, res) => {
   }
 };
 
+// Removes the logged-in user's wishlist entry for a course (no wishlist id needed).
+const removeCourseFromWishlist = async (req, res) => {
+  try {
+    await UserWishlist.deleteOne({
+      user_id: req.user.id,
+      course_id: req.params.courseId,
+      wishlist_type: 1,
+    });
+    return res.status(200).json({ status: true, message: "Removed from wishlist" });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 const getMyCourseWishlist = async (req, res) => {
   try {
     const data = await UserWishlist.find({
@@ -86,6 +100,8 @@ const getMyCourseWishlist = async (req, res) => {
             m_course_price
             m_course_offer_price
             m_course_thumbnail
+            m_course_banner
+            m_course_slug
             m_course_duration_app
             m_course_duration_web
             m_course_level
@@ -1450,6 +1466,7 @@ const appGetWishlist = async (req, res) => {
 };
 
 module.exports = {
+  removeCourseFromWishlist,
   addCourseToWishlist,
   getMyCourseWishlist,
   getAllCourseWishlistsAdmin,
