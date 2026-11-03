@@ -4,6 +4,7 @@ const UserReview = require("../models/user_reviews");
 const CourseReview = require("../models/course_review");
 const Course = require("../models/course");
 const Candidate = require("../models/candidates");
+const Enrollment = require("../models/course_enrollment");
 
 const validId = (v) => mongoose.Types.ObjectId.isValid(v);
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -220,4 +221,46 @@ const deleteAppReview = async (req, res) => {
   }
 };
 
-module.exports = { getCourseReviews, listAppReviews, publishAppReview, unpublishAppReview, deleteAppReview };
+// ---------------------------------------------------------------- student: review a course they are enrolled in
+
+// GET /course-reviews/my/:courseId
+const getMyCourseReview = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    if (!validId(courseId)) return res.status(400).json({ status: false, message: "Invalid course id" });
+    const review = await CourseReview.findOne({ user_id: req.user.id, course_id: courseId }).select("rating remark").lean();
+    return res.json({ status: true, data: review || null });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+// POST /course-reviews/my  { course_id, rating, remark } — one review per student per course (edits replace it).
+// It lands in the same list admin already moderates; nothing shows publicly until admin publishes it.
+const saveMyCourseReview = async (req, res) => {
+  try {
+    const { course_id, remark } = req.body;
+    const rating = Number(req.body.rating);
+    if (!validId(course_id)) return res.status(400).json({ status: false, message: "Invalid course id" });
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ status: false, message: "Rating must be between 1 and 5" });
+    }
+    const text = String(remark || "").trim().slice(0, 1000);
+
+    const enrolled = await Enrollment.exists({ user_id: req.user.id, course_id, status: 1 });
+    if (!enrolled) return res.status(403).json({ status: false, message: "Only enrolled students can review this course" });
+
+    const saved = await CourseReview.findOneAndUpdate(
+      { user_id: req.user.id, course_id },
+      { rating, remark: text || null },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    // An edited review must be re-approved: hide any earlier published copy.
+    await UserReview.updateMany({ source_review_id: saved._id }, { status: "inactive" });
+    return res.json({ status: true, message: "Thanks! Your review has been submitted." });
+  } catch (err) {
+    return res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+module.exports = { getMyCourseReview, saveMyCourseReview, getCourseReviews, listAppReviews, publishAppReview, unpublishAppReview, deleteAppReview };

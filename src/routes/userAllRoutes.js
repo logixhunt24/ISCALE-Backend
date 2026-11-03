@@ -87,6 +87,7 @@ router.use("/enroll-course", courseEnrollmentRoutes);
 router.use("/topics", topicsRoutes);
 router.use("/lecture-progress", lectureProgressRoutes);
 router.use("/enrolled-courses", enrolledCoursesRoutes);
+router.use("/course-reviews", require("./courseReviewUserRoutes"));
 router.use("/enrolled-events", enrolledEventsRoutes);
 router.use("/certificate", certificateRoutes);
 router.use("/test-category", testCategoryRoutes);
