@@ -1,5 +1,6 @@
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
 
@@ -580,8 +581,37 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// Course PDFs (the website's "Syllabus" download) are kept on this server's disk
+// instead of Cloudinary: the free Cloudinary plan rejects any file over 10 MB.
+// They are served from /uploads; see extractUploadedFile / deleteFile in
+// services/storageService.js for how the saved path and cleanup work.
+const LOCAL_FIELDS = new Set(["m_course_pdf"]);
+const LOCAL_DIR = path.join(__dirname, "..", "uploads", "course-pdfs");
+
+const localDisk = multer.diskStorage({
+  destination: (req, file, cb) => {
+    fs.mkdirSync(LOCAL_DIR, { recursive: true });
+    cb(null, LOCAL_DIR);
+  },
+  filename: (req, file, cb) => {
+    const baseName = path
+      .basename(file.originalname, path.extname(file.originalname))
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+    cb(null, `${Date.now()}-${baseName || "file"}.pdf`);
+  },
+});
+
+const storageFor = (file) => (LOCAL_FIELDS.has(file.fieldname) ? localDisk : storage);
+
+const hybridStorage = {
+  _handleFile: (req, file, cb) => storageFor(file)._handleFile(req, file, cb),
+  _removeFile: (req, file, cb) => storageFor(file)._removeFile(req, file, cb),
+};
+
 const upload = multer({
-  storage,
+  storage: hybridStorage,
   fileFilter,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB max

@@ -42,6 +42,18 @@ const uploadFile = async (localFilePath, folderName) => {
 const deleteFile = async (fileIdentifier) => {
   if (!fileIdentifier) return false;
 
+  // File kept on this server's disk (see extractUploadedFile)
+  if (String(fileIdentifier).startsWith("local:")) {
+    const target = path.resolve(UPLOADS_DIR, String(fileIdentifier).slice("local:".length));
+    if (!target.startsWith(UPLOADS_DIR + path.sep)) return false; // never leave the uploads folder
+    try {
+      await fs.promises.unlink(target);
+      return true;
+    } catch (err) {
+      return err.code === "ENOENT"; // already gone is fine
+    }
+  }
+
   if (STORAGE_PROVIDER === "cloudinary") {
     try {
       let resourceType = "image";
@@ -135,9 +147,19 @@ const deleteVideoFromCloud = async (publicId) => {
   return false;
 };
 
+const UPLOADS_DIR = path.join(__dirname, "..", "uploads");
+
 const extractUploadedFile = (file) => {
   if (!file) {
     return null;
+  }
+
+  // Saved on this server's disk (large files, see uploadMiddleware) rather than
+  // Cloudinary: store a relative path the site can load from /uploads, and a
+  // "local:" id that deleteFile knows how to remove.
+  if (file.destination) {
+    const rel = path.relative(UPLOADS_DIR, file.path).replace(/\\/g, "/");
+    return { url: `uploads/${rel}`, public_id: `local:${rel}` };
   }
 
   return {
