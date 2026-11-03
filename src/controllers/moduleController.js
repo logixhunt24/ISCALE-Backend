@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Module = require("../models/course_module");
+const { inactiveModuleIds } = require("../utils/inactiveModules");
 const Subject = require("../models/subject");
 const Lecture = require("../models/lecture");
 const Course = require("../models/course");
@@ -167,7 +168,9 @@ const getCourseContent = async (req, res) => {
       return res.status(400).json({ status: false, message: "Invalid course ID" });
     }
 
-    const [modules, subjects] = await Promise.all([
+    const hiddenModules = new Set((await inactiveModuleIds(courseId)).map(String));
+
+    const [modules, allSubjects] = await Promise.all([
       Module.find({ m_module_course: courseId, m_module_status: { $ne: 0 } }).sort({
         m_module_seq: 1,
         _id: 1,
@@ -177,6 +180,11 @@ const getCourseContent = async (req, res) => {
         _id: 1,
       }),
     ]);
+
+    // An inactive module hides its subjects as well
+    const subjects = allSubjects.filter(
+      (s) => !(s.m_subject_module && hiddenModules.has(String(s.m_subject_module))),
+    );
 
     const lectures = await Lecture.find({
       ml_subject: { $in: subjects.map((s) => s._id) },

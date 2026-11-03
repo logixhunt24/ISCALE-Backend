@@ -9,6 +9,7 @@ const Coupon = require("../models/coupon");
 const Offer = require("../models/offers");
 const Enrollment = require("../models/course_enrollment");
 const Subject = require("../models/subject");
+const { inactiveModuleIds } = require("../utils/inactiveModules");
 const Lecture = require("../models/lecture");
 const LectureProgress = require("../models/lecture_progress");
 const JobEnroll = require("../models/job_enroll");
@@ -232,6 +233,7 @@ const appGetCourseSubjectTopic = async (req, res) => {
     const subjects = await Subject.find({
       m_subject_course: course_id,
       m_subject_status: 1,
+      m_subject_module: { $nin: await inactiveModuleIds(course_id) },
     }).sort({ m_subject_seq: 1, _id: 1 });
 
     const result = await Promise.all(
@@ -296,6 +298,7 @@ const appGetUserCourseSubjectTopic = async (req, res) => {
     const subjects = await Subject.find({
       m_subject_course: course_id,
       m_subject_status: 1,
+      m_subject_module: { $nin: await inactiveModuleIds(course_id) },
     }).sort({ m_subject_seq: 1, _id: 1 });
 
     const result = await Promise.all(

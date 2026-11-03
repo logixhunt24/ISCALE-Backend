@@ -5,6 +5,7 @@ const Lecture = require("../models/lecture");
 const mongoose = require("mongoose");
 const { deleteFile } = require("../services/storageService");
 const CourseModule = require("../models/course_module");
+const { inactiveModuleIds } = require("../utils/inactiveModules");
 
 // Resolves the optional parent-module field from a request body: undefined
 // means "not sent", ""/"null" means "no module", anything else must be a
@@ -153,7 +154,10 @@ const getAllSubjects = async (req, res) => {
 //   }
 // };
 
-const getSubjectsByCourse = async (req, res) => {
+// One implementation, two routes: the admin list shows everything (so inactive
+// items can be switched back on); the public website route hides inactive
+// subjects and the subjects of inactive modules.
+const listSubjectsByCourse = async (req, res, publicOnly) => {
   try {
     const { courseId } = req.params;
 
@@ -165,9 +169,12 @@ const getSubjectsByCourse = async (req, res) => {
     }
 
     // Subjects fetch
-    const subjects = await Subject.find({
-      m_subject_course: courseId,
-    }).sort({ m_subject_seq: 1 });
+    const filter = { m_subject_course: courseId };
+    if (publicOnly) {
+      filter.m_subject_status = { $ne: 0 };
+      filter.m_subject_module = { $nin: await inactiveModuleIds(courseId) };
+    }
+    const subjects = await Subject.find(filter).sort({ m_subject_seq: 1 });
 
     const subjectIds = subjects.map((subject) => subject._id);
 
@@ -492,10 +499,14 @@ const getAllSubjectsDropdown = async (req, res) => {
   }
 };
 
+const getSubjectsByCourse = (req, res) => listSubjectsByCourse(req, res, false);
+const getPublicSubjectsByCourse = (req, res) => listSubjectsByCourse(req, res, true);
+
 module.exports = {
   addSubject,
   getAllSubjects,
   getSubjectsByCourse,
+  getPublicSubjectsByCourse,
   updateSubject,
   deleteSubject,
   getSubjectDropdownByCourse,

@@ -5,6 +5,7 @@ const {
   addSubject,
   getAllSubjects,
   getSubjectsByCourse,
+  getPublicSubjectsByCourse,
   updateSubject,
   deleteSubject,
   getSubjectDropdownByCourse,
@@ -90,7 +91,7 @@ router.get(
 
 router.get(
   "/public-get-subjects/:courseId",
-  getSubjectsByCourse,
+  getPublicSubjectsByCourse,
 );
 
 module.exports = router;
