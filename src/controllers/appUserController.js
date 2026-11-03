@@ -260,6 +260,23 @@ const getSingleUser = async (req, res) => {
       user.c_mobile_verified || user.c_email_verified || user.c_admin_verified,
     );
 
+    // Never send credentials or one-time codes to the browser; tell the admin
+    // only whether they exist.
+    userObj.has_password = Boolean(user.c_password);
+    userObj.has_fcm_token = Boolean(user.c_fcm_id);
+    [
+      "c_password",
+      "c_user_otp",
+      "c_otp_expiry",
+      "c_email_otp",
+      "c_email_otp_expiry",
+      "c_new_email_otp",
+      "c_new_email_otp_expiry",
+      "remember_token",
+      "c_user_session_token",
+      "c_fcm_id",
+    ].forEach((k) => delete userObj[k]);
+
     return res.status(200).json({
       status: true,
       data: userObj,
@@ -269,6 +286,196 @@ const getSingleUser = async (req, res) => {
       status: false,
       message: error.message,
     });
+  }
+};
+
+// ======================================
+// USER OVERVIEW (everything else we hold about a student, for the details modal)
+// ======================================
+
+const getUserOverview = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid user id" });
+    }
+    if (!(await Candidate.exists({ _id: id }))) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    const CourseOrder = require("../models/course_order");
+    const EventEnrollment = require("../models/event_enrollment");
+    const LectureProgress = require("../models/lecture_progress");
+    const QuizResult = require("../models/quiz_result");
+    const SubjectRating = require("../models/subject_rating");
+    const TestimonialRating = require("../models/testimonial_ratings");
+    const WebSession = require("../models/web_session");
+    const JobApplication = require("../models/company_requirement_application");
+    const Quiz = require("../models/quizs");
+    const Lecture = require("../models/lecture");
+    require("../models/event");
+    require("../models/subject");
+    require("../models/company_requirement");
+
+    const LIMIT = 200;
+
+    const [orders, events, progress, quizResults, subjectRatings, courseRatings, session, jobs] =
+      await Promise.all([
+        CourseOrder.find({ user_id: id })
+          .sort({ createdAt: -1 })
+          .limit(LIMIT)
+          .populate("course_id", "m_course_title")
+          .lean(),
+        EventEnrollment.find({ user_id: id })
+          .sort({ createdAt: -1 })
+          .limit(LIMIT)
+          .populate("event_id", "m_event_title m_event_date_start")
+          .lean(),
+        LectureProgress.find({ user_id: id })
+          .sort({ completed_at: -1 })
+          .populate("lecture_id", "ml_title")
+          .populate("subject_id", "m_subject_title")
+          .populate("course_id", "m_course_title")
+          .lean(),
+        QuizResult.find({ user_id: String(id) }).sort({ createdAt: -1 }).limit(LIMIT).lean(),
+        SubjectRating.find({ user_id: id })
+          .sort({ createdAt: -1 })
+          .populate("subject_id", "m_subject_title")
+          .lean(),
+        TestimonialRating.find({ user_id: id })
+          .sort({ createdAt: -1 })
+          .populate("course_id", "m_course_title")
+          .lean(),
+        WebSession.findOne({ user_id: String(id) }).lean(),
+        JobApplication.find({ user_id: id })
+          .sort({ applied_at: -1 })
+          .populate("job_id", "job_title company_name")
+          .lean(),
+      ]);
+
+    // Quiz titles (results only store the quiz id as text)
+    const quizIds = [...new Set(quizResults.map((q) => q.quiz_id))].filter((q) =>
+      mongoose.Types.ObjectId.isValid(q),
+    );
+    const quizzes = quizIds.length
+      ? await Quiz.find({ _id: { $in: quizIds } }).select("m_quiz_title").lean()
+      : [];
+    const quizTitle = new Map(quizzes.map((q) => [String(q._id), q.m_quiz_title]));
+
+    // Learning progress per course: lectures completed vs lectures in the course
+    const byCourse = new Map();
+    for (const p of progress) {
+      const cid = String(p.course_id?._id || p.course_id || "");
+      if (!cid) continue;
+      if (!byCourse.has(cid)) {
+        byCourse.set(cid, {
+          course_id: cid,
+          course: p.course_id?.m_course_title || "(deleted course)",
+          completed: 0,
+          last_completed_at: null,
+        });
+      }
+      const row = byCourse.get(cid);
+      if (p.is_completed) {
+        row.completed += 1;
+        if (!row.last_completed_at || new Date(p.completed_at) > new Date(row.last_completed_at)) {
+          row.last_completed_at = p.completed_at;
+        }
+      }
+    }
+    const courseProgress = await Promise.all(
+      [...byCourse.values()].map(async (row) => {
+        const total = await Lecture.countDocuments({ ml_course: row.course_id, ml_status: 1 });
+        return { ...row, total, percent: total ? Math.min(100, Math.round((row.completed / total) * 100)) : 0 };
+      }),
+    );
+
+    return res.status(200).json({
+      status: true,
+      data: {
+        orders: orders.map((x) => ({
+          _id: x._id,
+          course: x.course_id?.m_course_title || "(deleted course)",
+          plan_name: x.plan_name || "",
+          original_amount: x.original_amount,
+          offer_amount: x.offer_amount,
+          coupon_code: x.coupon_code || "",
+          coupon_discount: x.coupon_discount,
+          payable_amount: x.payable_amount,
+          currency: x.currency || "INR",
+          razorpay_order_id: x.razorpay_order_id,
+          razorpay_payment_id: x.razorpay_payment_id,
+          status: x.status,
+          createdAt: x.createdAt,
+        })),
+        events: events.map((x) => ({
+          _id: x._id,
+          event: x.event_id?.m_event_title || "(deleted event)",
+          event_date: x.event_id?.m_event_date_start || null,
+          status: x.status,
+          enrolled_on: x.enrolled_on || x.createdAt,
+        })),
+        course_progress: courseProgress,
+        completed_lectures: progress
+          .filter((p) => p.is_completed)
+          .slice(0, 50)
+          .map((p) => ({
+            _id: p._id,
+            lecture: p.lecture_id?.ml_title || "(deleted lecture)",
+            subject: p.subject_id?.m_subject_title || "",
+            course: p.course_id?.m_course_title || "",
+            completed_at: p.completed_at,
+          })),
+        quiz_results: quizResults.map((q) => ({
+          _id: q._id,
+          quiz: quizTitle.get(String(q.quiz_id)) || "(quiz)",
+          total_questions: q.total_questions,
+          attempted: q.attempted,
+          correct: q.correct,
+          wrong: q.wrong,
+          skipped: q.skipped,
+          marks_obtained: q.marks_obtained,
+          total_marks: q.total_marks,
+          percentage: q.percentage,
+          time_taken: q.time_taken,
+          createdAt: q.createdAt,
+        })),
+        ratings: [
+          ...subjectRatings.map((r) => ({
+            _id: r._id,
+            kind: "Subject",
+            item: r.subject_id?.m_subject_title || "(deleted subject)",
+            rating: r.rating,
+            review: r.review || "",
+            status: r.status,
+            createdAt: r.createdAt,
+          })),
+          ...courseRatings.map((r) => ({
+            _id: r._id,
+            kind: "Course",
+            item: r.course_id?.m_course_title || "(deleted course)",
+            rating: r.rating,
+            review: r.review || "",
+            status: r.status,
+            createdAt: r.createdAt,
+          })),
+        ],
+        job_applications: jobs
+          .filter((j) => j.job_id)
+          .map((j) => ({
+            _id: j._id,
+            job_title: j.job_id.job_title,
+            company_name: j.job_id.company_name,
+            applied_at: j.applied_at,
+          })),
+        web_session: session
+          ? { last_login: session.last_login, ip: session.ip, user_agent: session.user_agent }
+          : null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
 
@@ -1196,6 +1403,7 @@ module.exports = {
   searchUsersForDropdown,
   toggleAdminVerified,
   toggleUserStatus,
+  getUserOverview,
   toggleLifetimeAccess,
   addUser,
   setLmsStatus,

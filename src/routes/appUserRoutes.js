@@ -9,6 +9,7 @@ const {
   deleteUser,
   toggleAdminVerified,
   toggleUserStatus,
+  getUserOverview,
   toggleLifetimeAccess,
   addUser,
   setLmsStatus,
@@ -26,6 +27,8 @@ router.get("/all", authMiddleware, adminMiddleware, getAllUsers);
 router.post("/add", authMiddleware, adminMiddleware, addUser);
 
 router.get("/single/:id", authMiddleware, adminMiddleware, getSingleUser);
+
+router.get("/overview/:id", authMiddleware, adminMiddleware, getUserOverview);
 
 // LMS course assignment for a student
 router.get(
