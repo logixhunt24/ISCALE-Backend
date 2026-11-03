@@ -266,6 +266,13 @@ const getCourseRegistrations = async (req, res) => {
           // STATUS
           enrollment_status: enrollment.status,
 
+          // Access switches the admin can flip from the registrations table
+          app_status: enrollment.app_status || 0,
+          android_status: enrollment.android_status || 0,
+          ios_status: enrollment.ios_status || 0,
+          test_series_status: enrollment.test_series_status || 0,
+          live_class_status: enrollment.live_class_status || 0,
+
           createdAt: enrollment.createdAt,
         };
       }),
@@ -1408,6 +1415,22 @@ const getAllJobApplications = async (req, res) => {
         $in: companyJobIds,
       };
     }
+
+    // Leave out applications whose candidate or job has since been deleted:
+    // they would only show up as blank rows.
+    const [appUserIds, appJobIds] = await Promise.all([
+      JobApplication.distinct("user_id"),
+      JobApplication.distinct("job_id"),
+    ]);
+    const [liveUserIds, liveJobIds] = await Promise.all([
+      Candidate.find({ _id: { $in: appUserIds } }).distinct("_id"),
+      Job.find({ _id: { $in: appJobIds } }).distinct("_id"),
+    ]);
+    filter.$and = [
+      ...(filter.$and || []),
+      { user_id: { $in: liveUserIds } },
+      { job_id: { $in: liveJobIds } },
+    ];
 
     // TOTAL RECORDS
     const totalRecords = await JobApplication.countDocuments(filter);
