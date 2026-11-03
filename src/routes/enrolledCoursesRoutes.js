@@ -6,6 +6,7 @@ const { userMiddleware } = require("../middlewares/userMiddleware");
 const {
   getEnrolledPremiumCourses,
   getEnrolledFreeCourses,
+  getMyCourseNotes,
   getEnrolledCourseFullDetails,
   getCourseAccessDetails,
   appGetMyCourses,
@@ -42,6 +43,7 @@ router.get(
 
 // Mobile Apis=============================================================================================================================
 
+router.get("/notes", authMiddleware, userMiddleware, getMyCourseNotes);
 router.get("/user/courses", authMiddleware, userMiddleware, appGetMyCourses);
 
 router.post(

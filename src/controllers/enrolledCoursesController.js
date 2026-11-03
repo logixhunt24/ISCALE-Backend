@@ -732,7 +732,44 @@ const appVerifyCertificate = async (req, res) => {
   }
 };
 
+// GET /enrolled-courses/notes — PDF notes attached to the lectures of every course the student can currently open
+const getMyCourseNotes = async (req, res) => {
+  try {
+    const now = new Date();
+    const enrollments = await Enrollment.find({ user_id: req.user.id, status: 1 }).populate("course_id", "m_course_title").lean();
+    const open = enrollments.filter(
+      (e) =>
+        e.course_id &&
+        !(e.course_type === 2 && e.payment_status !== 1) &&
+        !(e.access_type === "limited" && e.expiry_date && now > new Date(e.expiry_date)),
+    );
+
+    const courseIds = open.map((e) => e.course_id._id);
+    const lectures = await Lecture.find({ ml_course: { $in: courseIds }, ml_pdffile: { $nin: [null, ""] } })
+      .sort({ ml_seq: 1, _id: 1 })
+      .select("ml_title ml_course ml_subject ml_pdffile")
+      .lean();
+    const subjects = await Subject.find({ _id: { $in: lectures.map((l) => l.ml_subject) } }).select("m_subject_title").lean();
+    const subjectTitle = new Map(subjects.map((s) => [String(s._id), s.m_subject_title]));
+
+    const data = open
+      .map((e) => ({
+        course_id: e.course_id._id,
+        course_title: e.course_id.m_course_title,
+        notes: lectures
+          .filter((l) => String(l.ml_course) === String(e.course_id._id))
+          .map((l) => ({ id: l._id, title: l.ml_title, subject: subjectTitle.get(String(l.ml_subject)) || "", url: l.ml_pdffile })),
+      }))
+      .filter((c) => c.notes.length);
+
+    return res.json({ status: true, data });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 module.exports = {
+  getMyCourseNotes,
   getEnrolledFreeCourses,
   getEnrolledPremiumCourses,
   getEnrolledCourseFullDetails,
