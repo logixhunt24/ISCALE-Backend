@@ -7,6 +7,7 @@ const {
   getAllLiveClasses,
   getSingleLiveClass,
   deleteLiveClass,
+  sendReminder,
 } = require("../controllers/liveClassController");
 const { adminMiddleware } = require("../middlewares/adminMiddleware");
 const { authMiddleware } = require("../middlewares/authMiddleware");
@@ -21,6 +22,8 @@ router.get("/all", authMiddleware, adminMiddleware, getAllLiveClasses);
 router.get("/single/:id",authMiddleware,adminMiddleware, getSingleLiveClass);
 
 router.delete("/delete/:id", authMiddleware, adminMiddleware, deleteLiveClass);
+
+router.post("/send-reminder/:id", authMiddleware, adminMiddleware, sendReminder);
 
 
 module.exports = router;

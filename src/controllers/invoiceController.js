@@ -7,12 +7,10 @@ const ApplicationSetting = require("../models/application_settings");
 const InvoiceCounter = require("../models/invoice_counter");
 const { generateInvoicePDF } = require("../utils/invoiceGenerator");
 
-const { sign, verify, apiBase } = require("../utils/signedLink");
+const { verify } = require("../utils/signedLink");
+const { signedInvoiceUrl } = require("../utils/invoiceLinks");
 
 const validId = (v) => mongoose.Types.ObjectId.isValid(v);
-
-const signedInvoiceUrl = (enrollmentId) =>
-  `${apiBase()}/api/invoice/signed/${enrollmentId}?sig=${sign("invoice", enrollmentId)}`;
 
 // Only paid, non-free enrolments get an invoice.
 const isInvoiceable = (e) =>

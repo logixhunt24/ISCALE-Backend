@@ -20,6 +20,7 @@ const {
 const { deleteCertificateFile } = require("../services/storageService");
 const Candidate = require("../models/candidates");
 const { verify } = require("../utils/signedLink");
+const { sendCertificateReady } = require("../utils/studentMail");
 const { signedCertificateUrl, certificateUrlFor } = require("../utils/certificateLinks");
 
 const fs = require("fs");
@@ -350,7 +351,9 @@ const updateCertificateStatus = async (req, res) => {
     }
 
     // APPROVED
+    let newlyApproved = false;
     if (Number(status) === 2) {
+      newlyApproved = enrollment.certificate_status !== 2;
       // keep the number when re-approving so a certificate never changes under the student
       const uniqueCertNo = enrollment.certificate_no || (await generateUniqueCertNo(Enrollment));
 
@@ -416,6 +419,11 @@ const updateCertificateStatus = async (req, res) => {
     }
 
     await enrollment.save();
+
+    // tell the student, once (not again when an admin just re-saves an approved certificate)
+    if (newlyApproved) {
+      sendCertificateReady(enrollment).catch((err) => console.error("certificate email error:", err.message));
+    }
 
     return res.status(200).json({
       status: true,

@@ -1,6 +1,11 @@
 const LiveClass = require("../models/live_class");
 const Batch = require("../models/batch");
 const Team = require("../models/our_teams");
+const Enrollment = require("../models/course_enrollment");
+const Candidate = require("../models/candidates");
+const { sendLiveClassReminders } = require("../utils/studentMail");
+
+const REMINDER_COOLDOWN_MS = 10 * 60 * 1000;
 
 // =================================
 // CHECK VALID VALUE
@@ -425,10 +430,78 @@ const deleteLiveClass = async (req, res) => {
   }
 };
 
+// POST /live-class/send-reminder/:id — emails every student in the class's batch, one by one
+const sendReminder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const liveClass = await LiveClass.findById(id)
+      .populate("batch_id", "batch_name")
+      .populate("teacher_id", "member_name");
+    if (!liveClass) {
+      return res.status(404).json({ status: false, message: "Live class not found" });
+    }
+    if (!liveClass.batch_id) {
+      return res.status(400).json({ status: false, message: "This class has no batch, so there is nobody to email." });
+    }
+
+    // Claim the send first (atomically) so two quick clicks cannot email the batch twice.
+    const since = new Date(Date.now() - REMINDER_COOLDOWN_MS);
+    const claimed = await LiveClass.findOneAndUpdate(
+      { _id: id, $or: [{ reminder_sent_at: null }, { reminder_sent_at: { $lt: since } }] },
+      { reminder_sent_at: new Date() },
+      { new: true },
+    );
+    if (!claimed) {
+      return res.status(429).json({
+        status: false,
+        message: "A reminder for this class was sent a moment ago. Please wait a few minutes before sending another.",
+      });
+    }
+
+    const enrollments = await Enrollment.find({ batch_id: liveClass.batch_id._id, status: 1 })
+      .select("user_id")
+      .lean();
+    const userIds = [...new Set(enrollments.map((e) => String(e.user_id)))];
+    if (!userIds.length) {
+      await LiveClass.updateOne({ _id: id }, { reminder_sent_at: null });
+      return res.status(400).json({ status: false, message: "No students have been added to this batch yet." });
+    }
+
+    const students = await Candidate.find({ _id: { $in: userIds } })
+      .select("c_first_name c_display_name c_email")
+      .lean();
+
+    const result = await sendLiveClassReminders({
+      liveClass,
+      batchName: liveClass.batch_id.batch_name,
+      teacher: liveClass.teacher_id?.member_name || "",
+      students,
+    });
+
+    // nothing went out at all (e.g. mail not configured): let the admin try again straight away
+    if (result.sent === 0) {
+      await LiveClass.updateOne({ _id: id }, { reminder_sent_at: null });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message:
+        result.sent > 0
+          ? `Reminder sent to ${result.sent} student${result.sent === 1 ? "" : "s"}`
+          : "No reminder could be sent. Please check the mail settings.",
+      data: { total: userIds.length, ...result },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 module.exports = {
   addLiveClass,
   updateLiveClass,
   getAllLiveClasses,
   getSingleLiveClass,
   deleteLiveClass,
+  sendReminder,
 };

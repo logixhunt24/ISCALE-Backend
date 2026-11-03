@@ -6,6 +6,7 @@ const Course = require("../models/course");
 const Coupon = require("../models/coupon");
 const Enrollment = require("../models/course_enrollment");
 const CourseOrder = require("../models/course_order");
+const { sendPurchaseConfirmation } = require("../utils/studentMail");
 
 // Lazily constructed so missing RAZORPAY_KEY_ID/SECRET only breaks checkout,
 // not server start-up.
@@ -391,7 +392,7 @@ const fulfillOrder = async (orderId, razorpayPaymentId) => {
       expiry_date.setDate(expiry_date.getDate() + (course.m_course_access_days || 0));
     }
 
-    await Enrollment.create({
+    const enrollment = await Enrollment.create({
       user_id: claimed.user_id,
       course_id: claimed.course_id,
       course_type: 2,
@@ -421,6 +422,10 @@ const fulfillOrder = async (orderId, razorpayPaymentId) => {
     if (claimed.coupon_id) {
       await Coupon.updateOne({ _id: claimed.coupon_id }, { $inc: { used_coupon: 1 } });
     }
+
+    // The student is enrolled at this point. The confirmation email is a courtesy: it is sent in
+    // the background and can never fail or delay the payment.
+    sendPurchaseConfirmation(enrollment).catch((err) => console.error("purchase email error:", err.message));
 
     return { enrolled: true, order: claimed, created: true };
   } catch (err) {

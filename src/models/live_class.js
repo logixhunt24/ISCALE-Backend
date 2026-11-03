@@ -41,6 +41,12 @@ const liveClassSchema = new mongoose.Schema(
       default: null,
     },
 
+    // when the last reminder email went out (stops an accidental double send)
+    reminder_sent_at: {
+      type: Date,
+      default: null,
+    },
+
     // teacher
     teacher_id: {
       type: mongoose.Schema.Types.ObjectId,
