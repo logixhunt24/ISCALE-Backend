@@ -94,8 +94,69 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// Registrations over a chosen range, bucketed for the dashboard chart:
+// 7D / 30D = per day, 90D = per week (13 weeks), 1Y = per month (12 months).
+// Days are counted in India time so "today" matches the admin's calendar.
+const TZ = "Asia/Kolkata";
+const dayKey = (d) => d.toLocaleDateString("en-CA", { timeZone: TZ }); // YYYY-MM-DD
+const dayLabel = (d) =>
+  d.toLocaleDateString("en-GB", { timeZone: TZ, day: "2-digit", month: "short" });
+
+const getRegistrationsByRange = async (req, res, range) => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = new Date();
+  const daysBack = (n) => new Date(now.getTime() - n * DAY);
+
+  let buckets; // [{ name, match: (dayKey) => boolean }]
+  if (range === "7D" || range === "30D") {
+    const n = range === "7D" ? 7 : 30;
+    buckets = Array.from({ length: n }, (_, i) => {
+      const d = daysBack(n - 1 - i);
+      const key = dayKey(d);
+      return { name: dayLabel(d), match: (k) => k === key };
+    });
+  } else if (range === "90D") {
+    buckets = Array.from({ length: 13 }, (_, w) => {
+      const keys = new Set();
+      for (let i = (12 - w) * 7; i < (12 - w) * 7 + 7; i++) keys.add(dayKey(daysBack(i)));
+      return { name: dayLabel(daysBack((12 - w) * 7 + 6)), match: (k) => keys.has(k) };
+    });
+  } else {
+    const [y, m] = dayKey(now).split("-").map(Number); // current IST year / month
+    buckets = Array.from({ length: 12 }, (_, i) => {
+      const first = new Date(Date.UTC(y, m - 1 - (11 - i), 1));
+      const prefix = first.toISOString().slice(0, 7); // YYYY-MM
+      return {
+        name: first.toLocaleDateString("en-GB", { timeZone: "UTC", month: "short", year: "2-digit" }),
+        match: (k) => k.startsWith(prefix),
+      };
+    });
+  }
+
+  const perDay = await Candidate.aggregate([
+    { $match: { c_register_date: { $gte: daysBack(range === "1Y" ? 400 : range === "90D" ? 95 : 35) } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$c_register_date", timezone: TZ } },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const data = buckets.map((b) => {
+    const count = perDay.reduce((sum, d) => (b.match(d._id) ? sum + d.count : sum), 0);
+    return { name: b.name, month: b.name, count };
+  });
+  return res.status(200).json({ success: true, data });
+};
+
 const getMonthWiseRegistrations = async (req, res) => {
   try {
+    const range = String(req.query.range || "").toUpperCase();
+    if (["7D", "30D", "90D", "1Y"].includes(range)) {
+      return await getRegistrationsByRange(req, res, range);
+    }
+
     const currentYear = new Date().getFullYear();
 
     const registrations = await Candidate.aggregate([
