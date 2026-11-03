@@ -8,6 +8,7 @@ const {
   searchUsersForDropdown,
   deleteUser,
   toggleAdminVerified,
+  toggleUserStatus,
   toggleLifetimeAccess,
   addUser,
   setLmsStatus,
@@ -59,6 +60,8 @@ router.delete("/delete/:id", authMiddleware, adminMiddleware, deleteUser);
 
 // Toggles c_admin_verified - the manual override behind the "Verified"
 // badge (isVerified = c_mobile_verified || c_email_verified || c_admin_verified)
+router.patch("/toggle-status/:id", authMiddleware, adminMiddleware, toggleUserStatus);
+
 router.patch(
   "/toggle-verified/:id",
   authMiddleware,

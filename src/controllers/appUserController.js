@@ -648,6 +648,39 @@ const searchUsersForDropdown = async (req, res) => {
 // through the OTP/Google flows; this is the admin's manual override for
 // accounts that haven't gone through either (e.g. admin-created ones).
 
+// Flips the Active/Inactive account flag (c_user_status: 1 = active, 0 = inactive)
+const { forgetUser } = require("../utils/accountStatus");
+
+const toggleUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid user id" });
+    }
+
+    const user = await Candidate.findById(id);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    const activating = user.c_user_status !== 1;
+    user.c_user_status = activating ? 1 : 0;
+    user.c_deactivated = !activating;
+    user.c_deactivated_at = activating ? null : new Date();
+    await user.save();
+    forgetUser(user._id); // takes effect on their next request, not after the cache expires
+
+    return res.status(200).json({
+      status: true,
+      message: activating ? "User activated" : "User deactivated",
+      c_user_status: user.c_user_status,
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};
+
 const toggleAdminVerified = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1162,6 +1195,7 @@ module.exports = {
   deleteUser,
   searchUsersForDropdown,
   toggleAdminVerified,
+  toggleUserStatus,
   toggleLifetimeAccess,
   addUser,
   setLmsStatus,

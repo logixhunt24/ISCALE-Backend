@@ -111,9 +111,14 @@ const candidateSchema = new mongoose.Schema({
   // c_email_verified/c_admin_verified, which drive the "Verified" badge.
   c_user_status: {
     type: Number,
-    enum: [0, 1], // 0=inactive (can't log in), 1=active
+    enum: [0, 1], // 0=inactive, 1=active (new sign-ups start at 0 until they finish registering)
     default: 0,
   },
+
+  // Set by the admin's Deactivate button: the record is kept for logs, but the
+  // student can no longer log in or use the apps (see utils/accountStatus.js).
+  c_deactivated: { type: Boolean, default: false },
+  c_deactivated_at: { type: Date, default: null },
 
   c_whatsapp: { type: Number, default: null },
   c_gender: { type: String, default: null },

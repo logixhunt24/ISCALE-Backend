@@ -1,6 +1,7 @@
 const { OAuth2Client } = require("google-auth-library");
 const Candidate = require("../models/candidates");
 const { issueUserToken } = require("../utils/token");
+const { denyIfDeactivated } = require("../utils/accountStatus");
 const generateCandidateIdno = require("../utils/generateCandidateIdno");
 
 const oauth2Client = new OAuth2Client(
@@ -103,6 +104,8 @@ exports.googleCallback = async (req, res) => {
         c_user_status: 1,
       });
     }
+
+    if (denyIfDeactivated(user, res)) return;
 
     const token = await issueUserToken(user, req, { forceWeb: true });
 

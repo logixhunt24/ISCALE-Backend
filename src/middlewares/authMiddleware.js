@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { isCurrentWebSession } = require("../utils/webSession");
+const { isUserDeactivated, DEACTIVATED_MESSAGE } = require("../utils/accountStatus");
 
 exports.authMiddleware = async (req, res, next) => {
   try {
@@ -38,7 +39,16 @@ exports.authMiddleware = async (req, res, next) => {
       }
     }
 
-    // 5. Attach user
+    // 5. A deactivated student's existing tokens stop working immediately
+    if (decoded.role === 2 && (await isUserDeactivated(decoded.id))) {
+      return res.status(403).send({
+        status: false,
+        code: "ACCOUNT_DEACTIVATED",
+        message: DEACTIVATED_MESSAGE,
+      });
+    }
+
+    // 6. Attach user
     req.user = decoded;
 
     next();

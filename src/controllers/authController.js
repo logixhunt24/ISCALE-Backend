@@ -4,6 +4,7 @@ const { toPublicUrl } = require("../utils/imageUrl");
 // const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { generateTokenUser, issueUserToken } = require("../utils/token");
+const { denyIfDeactivated } = require("../utils/accountStatus");
 // const Candidate = require("../models/candidate");
 const sendSms = require("../utils/sendSms");
 const sendEmail = require("../utils/sendEmail");
@@ -183,6 +184,8 @@ exports.login = async (req, res) => {
       });
     }
 
+    if (denyIfDeactivated(user, res)) return;
+
     // Generate token for user
     const token = await issueUserToken(user, req);
 
@@ -254,6 +257,8 @@ exports.loginWithPassword = async (req, res) => {
         message: "Invalid password",
       });
     }
+
+    if (denyIfDeactivated(user, res)) return;
 
     const token = await issueUserToken(user, req);
 
@@ -386,6 +391,8 @@ exports.loginVerifyOtp = async (req, res) => {
         message: "OTP expired",
       });
     }
+
+    if (denyIfDeactivated(user, res)) return;
 
     user.c_user_otp = null;
     user.c_otp_expiry = null;
@@ -737,6 +744,8 @@ exports.register = async (req, res) => {
       });
     }
 
+    if (denyIfDeactivated(user, res)) return;
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Update User
@@ -828,6 +837,8 @@ exports.createPassword = async (req, res) => {
         message: "Password already exists",
       });
     }
+
+    if (denyIfDeactivated(user, res)) return;
 
     const hashPassword = await bcrypt.hash(password, 10);
 
@@ -1219,6 +1230,8 @@ exports.appResetPassword = async (req, res) => {
         message: "User not found",
       });
     }
+
+    if (denyIfDeactivated(user, res)) return;
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.c_password = hashedPassword;
