@@ -107,21 +107,25 @@ const getAllJobs = async (req, res) => {
     if (location) {
       filter.job_locations = {
         $elemMatch: {
-          $regex: location,
+          $regex: String(location).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
           $options: "i", // case-insensitive
         },
       };
     }
     // SALARY FILTER
-    if (minSalary || maxSalary) {
-      filter["salary.min"] = { $gte: Number(minSalary || 0) };
-      filter["salary.max"] = { $lte: Number(maxSalary || 99999999) };
-    }
+    // A job matches when its salary range overlaps the requested one.
+    if (minSalary) filter["salary.max"] = { $gte: Number(minSalary) };
+    if (maxSalary) filter["salary.min"] = { $lte: Number(maxSalary) };
 
-    // EXPERIENCE FILTER (months)
-    // if (exp) {
-    //   filter["experience.max"] = { $gte: Number(exp) };
-    // }
+    // EXPERIENCE FILTER (years): experience is free text ("0", "2", "1-3",
+    // "3+"), so it is matched in JS below - a job is shown when its minimum
+    // required experience is at or under what the visitor entered. Jobs
+    // with non-numeric text are left out when this filter is used.
+    const wantedExp = exp !== undefined && exp !== "" ? Number(exp) : null;
+    const minRequiredExp = (text) => {
+      const m = String(text ?? "").trim().match(/^(\d+(?:\.\d+)?)/);
+      return m ? Number(m[1]) : null;
+    };
 
     // DATE FILTER
     if (fromDate || toDate) {
@@ -149,15 +153,25 @@ const getAllJobs = async (req, res) => {
       }
     }
 
-    const total = await Job.countDocuments(filter);
-
-    const data = await Job.find(filter)
+    const query = Job.find(filter)
       .select(
         "company_logo job_title company_name salary salary_type job_locations experience order application_link status",
       )
-      .sort({ order: 1, _id: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+      .sort({ order: 1, _id: -1 });
+
+    let total;
+    let data;
+    if (wantedExp !== null && !Number.isNaN(wantedExp)) {
+      const all = (await query).filter((j) => {
+        const need = minRequiredExp(j.experience);
+        return need !== null && need <= wantedExp;
+      });
+      total = all.length;
+      data = all.slice((page - 1) * limit, page * limit);
+    } else {
+      total = await Job.countDocuments(filter);
+      data = await query.skip((page - 1) * limit).limit(limit);
+    }
 
     res.json({
       status: true,
